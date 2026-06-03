@@ -1,0 +1,81 @@
+.admin-grid-toolbar {
+  min-height: 4.25rem;
+  background: var(--grid-toolbar-bg);
+}
+
+.admin-data-grid .ag-root-wrapper {
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+.admin-data-grid .ag-header {
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.admin-data-grid .ag-header-cell-label {
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-data-grid .ag-header-cell {
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+}
+
+.admin-data-grid .ag-floating-filter {
+  padding: 4px 8px !important;
+}
+
+.admin-data-grid .ag-floating-filter-input {
+  width: 100%;
+}
+
+.admin-data-grid .ag-floating-filter-input input,
+.admin-data-grid .ag-input-field-input {
+  height: 28px !important;
+  min-height: 28px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  padding: 0 8px !important;
+}
+
+.admin-data-grid .ag-floating-filter-button {
+  display: none !important;
+}
+
+.admin-data-grid .ag-row {
+  transition: background-color 0.15s ease;
+}
+
+.admin-data-grid .ag-row-clickable {
+  cursor: pointer;
+}
+
+.admin-data-grid .ag-cell {
+  display: flex;
+  align-items: center;
+  line-height: 1.4;
+}
+
+.admin-data-grid .ag-cell-wrapper {
+  width: 100%;
+}
+
+/* Bottom pagination hidden — toolbar controls pages */
+.admin-data-grid .ag-paging-panel {
+  display: none !important;
+}
+
+.admin-data-grid .ag-picker-field-wrapper,
+.admin-data-grid .ag-select {
+  border-radius: 6px !important;
+}
+
+.admin-data-grid .ag-overlay-loading-center,
+.admin-data-grid .ag-overlay-no-rows-center {
+  font-size: 14px;
+  color: var(--grid-overlay-text);
+  padding: 24px;
+}
