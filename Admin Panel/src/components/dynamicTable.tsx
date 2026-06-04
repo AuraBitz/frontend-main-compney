@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
 import type {
   ColDef,
+  FilterChangedEvent,
   GridApi,
   GridReadyEvent,
   RowClassParams,
@@ -13,7 +14,27 @@ import { Loader2 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { createAdminGridTheme } from "@/components/grid/grid-theme";
 import { GridToolbar } from "@/components/grid/GridToolbar";
+import {
+  buildActionsColumnDef,
+  type TableRowAction,
+} from "@/components/grid/TableRowActions";
+import {
+  agFilterModelToListFilters,
+  type ListQueryPayload,
+} from "@/lib/filter-builder-v2";
+import type { ListResult } from "@/lib/list-response";
+import { defaultListQuery } from "@/lib/list-query";
+import { withDateColumnFilters } from "@/lib/table-column-utils";
 import { cn } from "@/lib/utils";
+
+export type { TableRowAction };
+export {
+  buildActionsColumnDef,
+  viewRowAction,
+  editRowAction,
+  deleteRowAction,
+  buildSelectColumnDef,
+} from "@/components/grid/TableRowActions";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -31,6 +52,14 @@ export interface DynamicTableProps<T extends object> {
   onGridReady?: (api: GridApi<T>) => void;
   /** Global search, column picker, top pagination, header filters */
   showTableToolbar?: boolean;
+  /** View / Edit / custom buttons — pinned actions column on the right */
+  rowActions?: TableRowAction<T>[];
+  /** Backend list `meta.total` */
+  totalRowCount?: number;
+  /** Fields using calendar filter + Filter Builder V2 date ops on server */
+  dateFields?: string[];
+  /** Refetch rows when column filters change (uses backend filter-builder-v2) */
+  onServerFilter?: (query: ListQueryPayload) => Promise<ListResult<T>>;
 }
 
 export function DynamicTable<T extends object>({
@@ -46,15 +75,77 @@ export function DynamicTable<T extends object>({
   pageSize = 10,
   onGridReady,
   showTableToolbar = true,
+  rowActions,
+  totalRowCount,
+  dateFields = [],
+  onServerFilter,
 }: DynamicTableProps<T>) {
   const gridRef = useRef<AgGridReact<T>>(null);
   const { theme, mounted: themeMounted } = useTheme();
   const [gridApi, setGridApi] = useState<GridApi<T> | null>(null);
   const [quickFilter, setQuickFilter] = useState("");
+  const [serverRows, setServerRows] = useState<T[]>([]);
+  const [serverTotal, setServerTotal] = useState(0);
+  const [serverLoading, setServerLoading] = useState(false);
+  const filterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const serverMode = Boolean(onServerFilter);
 
   const gridTheme = useMemo(
     () => (themeMounted ? createAdminGridTheme(theme) : createAdminGridTheme("light")),
     [theme, themeMounted]
+  );
+
+  const mergedColumnDefs = useMemo(() => {
+    const cols = withDateColumnFilters(columnDefs, dateFields);
+    if (rowActions?.length) {
+      cols.push(buildActionsColumnDef(rowActions));
+    }
+    return cols;
+  }, [columnDefs, rowActions, dateFields]);
+
+  const displayRows = serverMode ? serverRows : rowData;
+  const displayLoading = serverMode ? serverLoading : loading;
+  const displayTotal = serverMode ? serverTotal : totalRowCount;
+  const isEmpty = !displayLoading && displayRows.length === 0;
+  const hasData = displayRows.length > 0;
+  const showBodyLoading = displayLoading;
+
+  const runServerFetch = useCallback(
+    async (api: GridApi<T>) => {
+      if (!onServerFilter) return;
+      const filters = agFilterModelToListFilters(
+        api.getFilterModel() as Record<string, unknown>,
+        dateFields
+      );
+      setServerLoading(true);
+      try {
+        const result = await onServerFilter({
+          ...defaultListQuery,
+          filters,
+        });
+        setServerRows(result.rows);
+        setServerTotal(result.total);
+      } catch {
+        setServerRows([]);
+        setServerTotal(0);
+      } finally {
+        setServerLoading(false);
+      }
+    },
+    [onServerFilter, dateFields]
+  );
+
+  const handleFilterChanged = useCallback(
+    (event: FilterChangedEvent<T>) => {
+      if (!serverMode) return;
+      if (filterDebounceRef.current) {
+        clearTimeout(filterDebounceRef.current);
+      }
+      filterDebounceRef.current = setTimeout(() => {
+        void runServerFetch(event.api);
+      }, 400);
+    },
+    [serverMode, runServerFetch]
   );
 
   const defaultColDef = useMemo<ColDef>(
@@ -68,7 +159,7 @@ export function DynamicTable<T extends object>({
       resizable: true,
       flex: 1,
       minWidth: 120,
-      cellClass: "ag-cell-flex",
+      suppressSizeToFit: true,
     }),
     []
   );
@@ -76,11 +167,24 @@ export function DynamicTable<T extends object>({
   const handleGridReady = useCallback(
     (params: GridReadyEvent<T>) => {
       setGridApi(params.api);
-      params.api.sizeColumnsToFit();
+      if (rowActions?.length && params.api.getColumn("actions")) {
+        const width =
+          params.api.getColumn("actions")?.getActualWidth() ?? 160;
+        params.api.setColumnWidths([{ key: "actions", newWidth: width }]);
+      }
+      if (serverMode) {
+        void runServerFetch(params.api);
+      }
       onGridReady?.(params.api);
     },
-    [onGridReady]
+    [onGridReady, rowActions?.length, serverMode, runServerFetch]
   );
+
+  useEffect(() => {
+    return () => {
+      if (filterDebounceRef.current) clearTimeout(filterDebounceRef.current);
+    };
+  }, []);
 
   const getRowClass = useCallback(
     (params: RowClassParams) => {
@@ -94,20 +198,41 @@ export function DynamicTable<T extends object>({
     [onRowClick]
   );
 
+  const loadingOverlayHtml = `
+    <div class="admin-grid-overlay admin-grid-overlay--loading">
+      <div class="admin-grid-overlay__spinner" aria-hidden="true"></div>
+      <p class="admin-grid-overlay__title">Loading records</p>
+      <p class="admin-grid-overlay__hint">Please wait…</p>
+    </div>
+  `;
+
+  const emptyOverlayHtml = `
+    <div class="admin-grid-overlay admin-grid-overlay--empty">
+      <div class="admin-grid-overlay__icon" aria-hidden="true">◇</div>
+      <p class="admin-grid-overlay__title">${emptyMessage}</p>
+      <p class="admin-grid-overlay__hint">Try adjusting filters or add a new record</p>
+    </div>
+  `;
+
   return (
     <div
       className={cn(
-        "admin-data-grid overflow-hidden rounded-xl border border-border bg-card shadow-sm",
+        "admin-data-grid overflow-hidden rounded-xl border border-border/80 bg-card shadow-md ring-1 ring-border/40",
+        displayLoading && "admin-data-grid--loading",
+        isEmpty && "admin-data-grid--empty",
+        hasData && "admin-data-grid--populated",
         className
       )}
     >
       {showTableToolbar && (
         <GridToolbar<T>
-          columnDefs={columnDefs}
+          columnDefs={mergedColumnDefs}
           gridApi={gridApi}
           quickFilter={quickFilter}
           onQuickFilterChange={setQuickFilter}
           toolbar={toolbar}
+          totalRowCount={displayTotal}
+          loading={displayLoading}
         />
       )}
 
@@ -126,63 +251,61 @@ export function DynamicTable<T extends object>({
         </div>
       )}
 
-      <div style={{ height }} className="w-full">
-        {loading && rowData.length === 0 ? (
+      <div
+        style={{ height }}
+        className="relative flex w-full min-h-0 flex-col admin-data-grid__viewport"
+      >
+        {showBodyLoading && (
           <div
-            className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground"
-            style={{ height }}
+            className="admin-data-grid__body-loader"
+            aria-live="polite"
+            aria-busy="true"
           >
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            <span className="text-sm">Loading data...</span>
+            <Loader2 className="size-7 animate-spin text-primary" />
+            <p className="text-sm font-medium text-foreground">
+              Loading data…
+            </p>
           </div>
-        ) : (
-          <AgGridReact<T>
-            ref={gridRef}
-            theme={gridTheme}
-            rowData={rowData}
-            columnDefs={columnDefs}
-            defaultColDef={defaultColDef}
-            quickFilterText={quickFilter}
-            rowHeight={52}
-            headerHeight={52}
-            floatingFiltersHeight={40}
-            pagination
-            paginationPageSize={pageSize}
-            suppressPaginationPanel
-            suppressCellFocus
-            animateRows
-            enableCellTextSelection
-            getRowClass={getRowClass}
-            onGridReady={handleGridReady}
-            onRowClicked={
-              onRowClick
-                ? (event) => {
-                    if (event.data) onRowClick(event.data);
-                  }
-                : undefined
-            }
-            overlayLoadingTemplate='<span class="ag-overlay-loading-center">Loading...</span>'
-            overlayNoRowsTemplate={`<span class="ag-overlay-no-rows-center">${emptyMessage}</span>`}
-          />
         )}
+        <AgGridReact<T>
+          ref={gridRef}
+          theme={gridTheme}
+          className="min-h-0 flex-1"
+          rowData={displayRows}
+          columnDefs={mergedColumnDefs}
+          defaultColDef={defaultColDef}
+          quickFilterText={serverMode ? undefined : quickFilter}
+          rowHeight={52}
+          headerHeight={52}
+          floatingFiltersHeight={40}
+          pagination
+          paginationPageSize={pageSize}
+          suppressPaginationPanel
+          suppressCellFocus
+          animateRows={false}
+          alwaysShowHorizontalScroll
+          enableCellTextSelection
+          getRowClass={getRowClass}
+          onGridReady={handleGridReady}
+          onFilterChanged={handleFilterChanged}
+          onRowClicked={
+            onRowClick
+              ? (event) => {
+                  if (event.data) onRowClick(event.data);
+                }
+              : undefined
+          }
+          overlayLoadingTemplate={loadingOverlayHtml}
+          overlayNoRowsTemplate={emptyOverlayHtml}
+        />
       </div>
     </div>
   );
 }
 
-/** Right-pinned actions column */
-export function tableActionColumn<T>(): ColDef<T> {
-  return {
-    headerName: "",
-    colId: "actions",
-    maxWidth: 72,
-    minWidth: 72,
-    width: 72,
-    sortable: false,
-    filter: false,
-    floatingFilter: false,
-    resizable: false,
-    pinned: "right",
-    cellClass: "ag-cell-actions",
-  };
+/** @deprecated Use rowActions prop or buildActionsColumnDef() */
+export function tableActionColumn<T extends object>(
+  actions: TableRowAction<T>[]
+): ColDef<T> {
+  return buildActionsColumnDef(actions) as ColDef<T>;
 }

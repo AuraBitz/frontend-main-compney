@@ -9,9 +9,9 @@ export const ProjectsRoutes: NavRouteConfig[] = [
     element: RoutePlaceholder,
     islayout: true,
     isProtected: true,
-    title: "Projects",
+    title: "Project Master",
     icon: FolderKanban,
-    group: "modules",
+    group: "management",
     roles: ["super_admin", "admin", "manager"],
   },
 ];

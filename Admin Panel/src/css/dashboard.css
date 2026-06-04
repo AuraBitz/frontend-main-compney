@@ -1,0 +1,110 @@
+.dashboard-page {
+  --dashboard-chart-bar: var(--primary);
+  --dashboard-glow: color-mix(in oklch, var(--primary) 18%, transparent);
+}
+
+.dark .dashboard-page {
+  --dashboard-glow: color-mix(in oklch, var(--primary) 35%, transparent);
+  --dashboard-chart-bar: var(--chart-1);
+}
+
+.dashboard-chart-bar {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--primary) 85%, white) 0%,
+    var(--primary) 100%
+  );
+}
+
+.dark .dashboard-chart-bar {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--primary) 70%, transparent) 0%,
+    var(--primary) 100%
+  );
+}
+
+.dashboard-date-filter,
+.dashboard-chart,
+.dashboard-users,
+.dashboard-stat {
+  background: var(--card);
+  color: var(--card-foreground);
+}
+
+.dashboard-chart-bars::-webkit-scrollbar {
+  height: 6px;
+}
+
+.dashboard-chart-bars::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.dashboard-chart-bar-amount {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--chart-2, var(--primary)) 75%, white) 0%,
+    color-mix(in oklch, var(--primary) 90%, transparent) 100%
+  );
+}
+
+.dark .dashboard-chart-bar-amount {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--chart-2, var(--primary)) 60%, transparent) 0%,
+    var(--primary) 100%
+  );
+}
+
+.dashboard-chart-bar-projects {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--chart-4, var(--primary)) 80%, white) 0%,
+    var(--chart-4, var(--primary)) 100%
+  );
+}
+
+.dark .dashboard-chart-bar-projects {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--chart-4, var(--primary)) 65%, transparent) 0%,
+    var(--chart-4, var(--primary)) 100%
+  );
+}
+
+.dashboard-hero {
+  background: linear-gradient(
+    135deg,
+    var(--dashboard-glow) 0%,
+    transparent 55%
+  );
+  border: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 4%),
+    0 8px 24px oklch(0 0 0 / 6%);
+}
+
+.dashboard-hero--portal {
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--primary) 22%, transparent) 0%,
+    color-mix(in oklch, var(--chart-4, var(--primary)) 8%, transparent) 40%,
+    transparent 70%
+  );
+}
+
+.dashboard-page--portal {
+  --dashboard-glow: color-mix(in oklch, var(--primary) 28%, transparent);
+}
+
+.dashboard-quick-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.dashboard-insight,
+.dashboard-panel {
+  background: var(--card);
+  color: var(--card-foreground);
+}

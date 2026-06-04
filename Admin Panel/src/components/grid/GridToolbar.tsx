@@ -23,6 +23,7 @@ export interface GridColumnOption {
 function getColId<T>(col: ColDef<T>): string | null {
   const id = col.colId ?? col.field;
   if (!id || typeof id !== "string") return null;
+  if (id === "actions" || col.pinned) return null;
   if (col.filter === false && col.floatingFilter === false) return null;
   return id;
 }
@@ -51,6 +52,9 @@ interface GridToolbarProps<T extends object> {
   quickFilter: string;
   onQuickFilterChange: (value: string) => void;
   toolbar?: React.ReactNode;
+  /** Total rows from API `meta.total` */
+  totalRowCount?: number;
+  loading?: boolean;
 }
 
 export function GridToolbar<T extends object>({
@@ -59,6 +63,8 @@ export function GridToolbar<T extends object>({
   quickFilter,
   onQuickFilterChange,
   toolbar,
+  totalRowCount,
+  loading = false,
 }: GridToolbarProps<T>) {
   const [columns, setColumns] = useState<GridColumnOption[]>(() =>
     buildColumnOptions(columnDefs)
@@ -254,7 +260,22 @@ export function GridToolbar<T extends object>({
           </DialogContent>
         </Dialog>
       </div>
-      <div className="flex shrink-0 items-center justify-end sm:ml-auto">
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-4 sm:ml-auto">
+        <p
+          className="text-sm text-muted-foreground"
+          aria-live="polite"
+        >
+          {loading ? (
+            "Loading..."
+          ) : (
+            <>
+              <span className="font-semibold tabular-nums text-foreground">
+                {(totalRowCount ?? 0).toLocaleString()}
+              </span>{" "}
+              Found Rows
+            </>
+          )}
+        </p>
         {pageButtons}
       </div>
     </div>

@@ -1,15 +1,20 @@
 import Http from "@/services/api/http";
+import type { ListQueryPayload } from "@/lib/filter-builder-v2";
+import { defaultListQuery } from "@/lib/list-query";
 import type { ClientManagementRow } from "@/types/client-management.types";
 
-export const GetAllClientManagementList = (body?: {
-  skip?: number;
-  limit?: number;
-  sort?: string;
-  filters?: Record<string, unknown>;
-}) => {
-  return Http.post<ClientManagementRow[]>({
+export const GetClientById = (id: string | number) => {
+  return Http.get<ClientManagementRow>({
+    url: `/client-management/${id}`,
+    messageSettings: { hideSuccessMessage: true, hideErrorMessage: false },
+  });
+};
+
+export const GetAllClientManagementList = (body?: ListQueryPayload) => {
+  return Http.postList<ClientManagementRow>({
     url: "/client-management/list",
-    data: body ?? { skip: 0, limit: 100 },
+    data: body ?? defaultListQuery,
+    messageSettings: { hideSuccessMessage: true },
   });
 };
 

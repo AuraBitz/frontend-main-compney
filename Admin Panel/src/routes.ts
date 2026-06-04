@@ -8,6 +8,8 @@ import { ParentModulesRoutes } from "@/routes/parent-modules.routes";
 import { SubModulesRoutes } from "@/routes/sub-modules.routes";
 import { PlansRoutes } from "@/routes/plans.routes";
 import { ProjectsRoutes } from "@/routes/projects.routes";
+import { RolesRoutes } from "@/routes/roles.routes";
+import { PlansTrackerRoutes } from "@/routes/plans-tracker.routes";
 
 export const APP_ROUTES: RouteConfig[] = [
   ...LoginRoutes,
@@ -18,10 +20,25 @@ export const APP_ROUTES: RouteConfig[] = [
   ...SubModulesRoutes,
   ...PlansRoutes,
   ...ProjectsRoutes,
+  ...RolesRoutes,
+  ...PlansTrackerRoutes,
 ];
 
+/** Sidebar-only routes (Dashboard + Management) */
+const SIDEBAR_NAV_KEYS = new Set([
+  "dashboard",
+  "client-management-list",
+  "plans-list",
+  "plans-tracker-list",
+  "projects-list",
+  "role-master-list",
+]);
+
 export const NAV_ROUTES: NavRouteConfig[] = APP_ROUTES.filter(
-  (route): route is NavRouteConfig => "title" in route && "icon" in route
+  (route): route is NavRouteConfig =>
+    "title" in route &&
+    "icon" in route &&
+    SIDEBAR_NAV_KEYS.has(route.key)
 );
 
 export type AppRoute = NavRouteConfig["path"] | "/login";

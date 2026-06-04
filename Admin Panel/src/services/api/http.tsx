@@ -5,7 +5,10 @@ import axios, {
 } from "axios";
 import type { ShowErrorMessage } from "@/components/Notifications/notification-types";
 import { API_BASE_URL, API_PREFIX } from "./config";
+import { unwrapListResult, type ListResult } from "@/lib/list-response";
 import type { BackendErrorResponse, BackendSuccessResponse } from "./types";
+
+export type { ListResult };
 
 export type { ShowErrorMessage };
 
@@ -327,5 +330,63 @@ Http.delete = <T = unknown>({
     messageSettings: { ...defaultSettings, ...messageSettings },
     method: "delete",
   });
+
+/** POST list endpoints — returns rows + `meta.total` from backend. */
+Http.postList = async <T = unknown>({
+  url,
+  data,
+  config,
+  messageSettings,
+  token,
+}: PostRequestInterface): Promise<ListResult<T>> => {
+  const client = axios.create({
+    baseURL: `${API_BASE_URL}${API_PREFIX}`,
+    headers,
+    withCredentials: true,
+  });
+
+  const settings = { ...defaultSettings, ...messageSettings };
+
+  try {
+    const response = await client.post(
+      url,
+      data,
+      mergeAuthConfig(config, token)
+    );
+
+    if (!settings.hideSuccessMessage && isBrowser()) {
+      const body = response.data as BackendSuccessResponse<unknown>;
+      if (settings.successMessage?.trim()) {
+        void notifyHttp("success", settings.successMessage, settings);
+      } else if (typeof body?.message === "string" && body.message.trim()) {
+        void notifyHttp("success", body.message, settings);
+      }
+    }
+
+    return unwrapListResult<T>(response.data);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status ?? 0;
+      const responseData = error.response?.data;
+      const message = settings.errorMessage?.trim()
+        ? settings.errorMessage
+        : getErrorMessage(responseData, status);
+
+      if (isBrowser() && !settings.hideErrorMessage) {
+        void notifyHttp("error", message, settings);
+      }
+
+      const code =
+        responseData &&
+        typeof responseData === "object" &&
+        "code" in responseData
+          ? (responseData as BackendErrorResponse).code
+          : null;
+
+      return Promise.reject(new ApiError(message, status, code));
+    }
+    return Promise.reject(error);
+  }
+};
 
 export default Http;

@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthProvider } from "@/store";
+import { ProjectPortalProvider } from "@/store/project-portal";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "sonner";
@@ -10,11 +11,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <TooltipProvider>
-          {children}
+        <ProjectPortalProvider>
+          <TooltipProvider>
+            {children}
           <Toaster position="top-right" richColors />
           <ToastContainer newestOnTop closeOnClick rtl={false} limit={3} />
-        </TooltipProvider>
+          </TooltipProvider>
+        </ProjectPortalProvider>
       </AuthProvider>
     </ThemeProvider>
   );

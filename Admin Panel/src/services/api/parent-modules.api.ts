@@ -1,9 +1,10 @@
 import Http from "@/services/api/http";
 
 export const GetAllParentModulesList = (body?: unknown) => {
-  return Http.post({
+  return Http.postList<{ id: number; module_name: string }>({
     url: "/parent-modules/list",
     data: body,
+    messageSettings: { hideSuccessMessage: true },
   });
 };
 

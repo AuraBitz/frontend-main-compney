@@ -1,9 +1,18 @@
 import Http from "@/services/api/http";
+import type { ProjectMasterRow } from "@/types/project-master.types";
+
+export const GetProjectById = (id: string | number) => {
+  return Http.get<ProjectMasterRow>({
+    url: `/projects/${id}`,
+    messageSettings: { hideSuccessMessage: true },
+  });
+};
 
 export const GetAllProjectsList = (body?: unknown) => {
-  return Http.post({
+  return Http.postList<ProjectMasterRow>({
     url: "/projects/list",
     data: body,
+    messageSettings: { hideSuccessMessage: true },
   });
 };
 

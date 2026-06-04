@@ -9,7 +9,9 @@ const backendApiPrefixes = [
   "parent-modules",
   "sub-modules",
   "plans",
+  "plans-tracker",
   "projects",
+  "roles-master",
   "health",
 ] as const;
 

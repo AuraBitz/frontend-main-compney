@@ -38,7 +38,9 @@ export default function DashboardLayout({
       <AppSidebar />
       <SidebarInset className="flex min-h-svh flex-col">
         <TopBar />
-        <div className="flex-1 overflow-auto p-6">{children}</div>
+        <div className="flex-1 overflow-auto bg-[var(--page-canvas)] p-6">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

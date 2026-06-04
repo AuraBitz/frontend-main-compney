@@ -50,6 +50,18 @@ export function createAdminGridTheme(mode: ThemeMode) {
     spacing: 10,
     wrapperBorder: true,
     wrapperBorderRadius: 12,
+    columnBorder: {
+      width: 1,
+      color: readCssVar("--grid-border", isDark ? "#334155" : "#e2e8f0"),
+    },
+    headerColumnBorder: {
+      width: 1,
+      color: readCssVar("--grid-border", isDark ? "#334155" : "#e2e8f0"),
+    },
+    rowBorder: {
+      width: 1,
+      color: readCssVar("--grid-border", isDark ? "#334155" : "#e2e8f0"),
+    },
   });
 }
 

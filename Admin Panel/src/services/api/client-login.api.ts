@@ -1,9 +1,27 @@
 import Http from "@/services/api/http";
 
+export interface ClientLoginRow {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+  status: string;
+  device_id?: string | null;
+  created_at?: string;
+}
+
+export const GetClientLoginById = (id: string | number) => {
+  return Http.get<ClientLoginRow>({
+    url: `/client-login/${id}`,
+    messageSettings: { hideSuccessMessage: true },
+  });
+};
+
 export const GetAllClientLoginList = (body?: unknown) => {
-  return Http.post({
+  return Http.postList<ClientLoginRow>({
     url: "/client-login/list",
     data: body,
+    messageSettings: { hideSuccessMessage: true },
   });
 };
 

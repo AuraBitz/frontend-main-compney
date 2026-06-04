@@ -2,6 +2,7 @@ export type ClientPlanStatus = "Active" | "Deactivate" | "Blocked";
 
 export interface ClientManagementRow {
   id: number;
+  company_name?: string | null;
   owner_name: string;
   mobile?: string | null;
   email?: string | null;
@@ -17,4 +18,7 @@ export interface ClientManagementRow {
   plan_remain_days?: number | null;
   plan_status: ClientPlanStatus;
   login_id?: number | null;
+  project_name?: string | null;
+  plan_type?: string | null;
+  plan_amount?: number | string | null;
 }

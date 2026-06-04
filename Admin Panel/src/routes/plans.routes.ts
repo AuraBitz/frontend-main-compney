@@ -9,9 +9,9 @@ export const PlansRoutes: NavRouteConfig[] = [
     element: RoutePlaceholder,
     islayout: true,
     isProtected: true,
-    title: "Plans",
+    title: "Plan Master",
     icon: CreditCard,
-    group: "modules",
+    group: "management",
     roles: ["super_admin", "admin", "manager"],
   },
 ];

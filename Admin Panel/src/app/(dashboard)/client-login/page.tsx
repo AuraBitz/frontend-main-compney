@@ -3,23 +3,33 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { PageShell } from "@/layout/PageShell";
-import { DynamicTable } from "@/components/dynamicTable";
+import {
+  DynamicTable,
+  editRowAction,
+  viewRowAction,
+  type TableRowAction,
+} from "@/components/dynamicTable";
+import { defaultListQuery } from "@/lib/list-query";
+import { notifyInfo } from "@/components/Notifications/notification";
 import { GetAllClientLoginList } from "@/services/api/client-login.api";
 import type { BackendLoginAccount } from "@/services/api/login.api";
 
 export default function ClientLoginPage() {
   const [rows, setRows] = useState<BackendLoginAccount[]>([]);
+  const [totalRows, setTotalRows] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    GetAllClientLoginList({ skip: 0, limit: 100 })
-      .then((data) => {
-        setRows(Array.isArray(data) ? data : []);
+    GetAllClientLoginList(defaultListQuery)
+      .then((result) => {
+        setRows(result.rows as BackendLoginAccount[]);
+        setTotalRows(result.total);
         setError("");
       })
       .catch((err) => {
         setRows([]);
+        setTotalRows(0);
         setError(
           err instanceof Error ? err.message : "Failed to load login accounts"
         );
@@ -38,6 +48,18 @@ export default function ClientLoginPage() {
     []
   );
 
+  const rowActions = useMemo<TableRowAction<BackendLoginAccount>[]>(
+    () => [
+      viewRowAction((row) =>
+        notifyInfo(`View: ${row.username} (ID ${row.id})`)
+      ),
+      editRowAction((row) =>
+        notifyInfo(`Edit: ${row.username} (ID ${row.id})`)
+      ),
+    ],
+    []
+  );
+
   return (
     <PageShell title="Client Login" description="Login accounts">
       {error && (
@@ -48,7 +70,9 @@ export default function ClientLoginPage() {
       <DynamicTable<BackendLoginAccount>
         rowData={rows}
         columnDefs={columnDefs}
+        rowActions={rowActions}
         loading={loading}
+        totalRowCount={totalRows}
         emptyMessage="No login accounts found"
       />
     </PageShell>

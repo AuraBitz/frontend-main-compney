@@ -47,7 +47,13 @@ export const config = {
     "/sub-modules/:path*",
     "/plans",
     "/plans/:path*",
+    "/plans-tracker",
+    "/plans-tracker/:path*",
     "/projects",
     "/projects/:path*",
+    "/portal",
+    "/portal/:path*",
+    "/role-master",
+    "/role-master/:path*",
   ],
 };
