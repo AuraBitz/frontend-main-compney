@@ -37,7 +37,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full font-sans">
+      <body className="min-h-full font-sans" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>

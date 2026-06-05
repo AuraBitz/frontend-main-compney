@@ -1,16 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Shield } from "lucide-react";
+import { AlertCircle, ArrowRight, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/store";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -32,76 +26,116 @@ export function LoginForm() {
       const message =
         err instanceof Error && err.message.trim()
           ? err.message
-          : "Login failed";
+          : "Invalid username/email or password.";
       setError(message);
+      toast.error(message);
+    } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <Card className="w-full max-w-md border-border shadow-lg">
-      <CardHeader className="space-y-1 text-center">
-        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
-          <Shield className="h-6 w-6 text-primary-foreground" />
-        </div>
-        <CardTitle className="text-2xl font-bold">Admin Portal</CardTitle>
-        <CardDescription>
-          Sign in with email or username
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="username">Email or Username</Label>
-            <Input
-              id="username"
-              name="username"
-              type="text"
-              placeholder="kaushal@gmail.com or client1"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              autoComplete="username"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              placeholder="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
-          </div>
-          {error && (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          )}
-          <Button
-            type="submit"
-            className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-            disabled={isSubmitting}
+    <div className="relative z-10 w-full max-w-[380px]">
+      <header className="mb-10">
+        <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-muted-foreground">
+          Welcome back
+        </p>
+        <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight text-foreground">
+          Sign in
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Use your registered email or username
+        </p>
+      </header>
+
+      <form onSubmit={handleSubmit} className="space-y-7" noValidate>
+        {error ? (
+          <div
+            className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+            role="alert"
+            aria-live="assertive"
           >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Signing in...
-              </>
-            ) : (
-              "Sign In"
-            )}
-          </Button>
-        </form>
-        <div className="mt-6 rounded-lg bg-secondary p-3 text-xs text-secondary-foreground">
-          <p className="font-medium mb-1">Test accounts (password: password)</p>
-          <p>kaushal@gmail.com · kaushal · c1@test.com · client1</p>
+            <AlertCircle className="mt-0.5 size-4 shrink-0" />
+            <p>{error}</p>
+          </div>
+        ) : null}
+
+        <div className="space-y-2">
+          <Label
+            htmlFor="username"
+            className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+          >
+            Email or username
+          </Label>
+          <Input
+            id="username"
+            name="username"
+            type="text"
+            placeholder="super@admin.com"
+            value={username}
+            onChange={(e) => {
+              setUsername(e.target.value);
+              if (error) setError("");
+            }}
+            required
+            autoComplete="username"
+            aria-invalid={Boolean(error)}
+            className="h-11 rounded-none border-0 border-b border-border bg-transparent px-0 shadow-none focus-visible:border-primary focus-visible:ring-0 dark:bg-transparent"
+          />
         </div>
-      </CardContent>
-    </Card>
+
+        <div className="space-y-2">
+          <Label
+            htmlFor="password"
+            className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+          >
+            Password
+          </Label>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (error) setError("");
+            }}
+            required
+            autoComplete="current-password"
+            aria-invalid={Boolean(error)}
+            className="h-11 rounded-none border-0 border-b border-border bg-transparent px-0 shadow-none focus-visible:border-primary focus-visible:ring-0 dark:bg-transparent"
+          />
+        </div>
+
+        <Button
+          type="submit"
+          className="group h-11 w-full rounded-none bg-primary text-primary-foreground hover:bg-primary/90"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Signing in...
+            </>
+          ) : (
+            <>
+              Continue
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+            </>
+          )}
+        </Button>
+      </form>
+
+      {process.env.NODE_ENV === "development" ? (
+        <p className="mt-10 border-t border-border/60 pt-6 text-center text-xs leading-relaxed text-muted-foreground">
+          Dev credentials
+          <br />
+          <span className="font-mono text-foreground/80">super@admin.com</span>
+          {" · "}
+          <span className="font-mono text-foreground/80">admin123</span>
+        </p>
+      ) : null}
+    </div>
   );
 }

@@ -23,28 +23,45 @@ export async function loginRequest(
 ): Promise<LoginActionResult> {
   const payload = buildLoginPayload(usernameOrEmail, password);
 
-  const response = await fetch("/api/auth/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(payload),
-    credentials: "include",
-    cache: "no-store",
-  });
-
-  const data = await parseJson<LoginActionResult>(response);
-
-  if (!data.success) {
-    return data;
-  }
-
-  if (!response.ok) {
+  let response: Response;
+  try {
+    response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(payload),
+      credentials: "include",
+      cache: "no-store",
+    });
+  } catch {
     return {
       success: false,
-      error: "Login failed. Please try again.",
+      error: "Unable to reach the server. Please try again.",
     };
   }
 
-  return data;
+  let data: LoginActionResult | Record<string, unknown>;
+  try {
+    data = await parseJson<LoginActionResult>(response);
+  } catch {
+    return {
+      success: false,
+      error: "Unexpected server response. Please try again.",
+    };
+  }
+
+  if (data.success === true && "user" in data && data.user) {
+    return data as Extract<LoginActionResult, { success: true }>;
+  }
+
+  const errorMessage =
+    (typeof data.error === "string" && data.error.trim()) ||
+    (typeof data.message === "string" && data.message.trim()) ||
+    "Invalid username/email or password.";
+
+  return { success: false, error: errorMessage };
 }
 
 export async function logoutRequest(): Promise<LogoutActionResult> {

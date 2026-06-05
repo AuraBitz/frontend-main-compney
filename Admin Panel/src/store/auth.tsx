@@ -38,7 +38,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (usernameOrEmail: string, password: string) => {
     const result = await loginRequest(usernameOrEmail.trim(), password);
     if (!result.success) {
-      throw new Error(result.error);
+      throw new Error(
+        result.error?.trim() || "Invalid username/email or password."
+      );
     }
     setUser(result.user);
     window.location.assign("/dashboard");
