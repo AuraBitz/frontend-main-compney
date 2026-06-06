@@ -1,6 +1,6 @@
 import { GetAllPlansList } from "@/services/api/plans.api";
 import { GetAllProjectsList } from "@/services/api/projects.api";
-import { GetAllRolesList } from "@/services/api/roles.api";
+import { GetAllRestaurantsList } from "@/services/api/restaurant-master.api";
 import { defaultListQuery } from "@/lib/list-query";
 import type { ClientFormOptions } from "@/lib/client-form-config";
 import type { DynamicSelectOption } from "@/types/dynamic-form.types";
@@ -16,16 +16,18 @@ interface ProjectRow {
 }
 
 export async function loadClientFormOptions(): Promise<ClientFormOptions> {
-  const [plans, projects, roles] = await Promise.all([
+  const [plans, projects, restaurants] = await Promise.all([
     GetAllPlansList(defaultListQuery),
     GetAllProjectsList(defaultListQuery),
-    GetAllRolesList(defaultListQuery),
+    GetAllRestaurantsList(defaultListQuery),
   ]);
 
   const planRows = plans.rows as PlanRow[];
   const projectRows = projects.rows as ProjectRow[];
-  const roleRows = roles.rows as { role_name: string; role_code: string }[];
-
+  const restaurantRows = restaurants.rows as {
+    id: number;
+    restaurant_name: string;
+  }[];
   return {
     planOptions: planRows.map((p) => ({
       label: p.plan_type || `Plan #${p.id}`,
@@ -35,9 +37,9 @@ export async function loadClientFormOptions(): Promise<ClientFormOptions> {
       label: p.name || `Project #${p.id}`,
       value: String(p.id),
     })) as DynamicSelectOption[],
-    roleOptions: roleRows.map((r) => ({
-      label: r.role_name || r.role_code,
-      value: r.role_code,
-    })),
+    restaurantOptions: restaurantRows.map((r) => ({
+      label: r.restaurant_name || `Restaurant #${r.id}`,
+      value: String(r.id),
+    })) as DynamicSelectOption[],
   };
 }

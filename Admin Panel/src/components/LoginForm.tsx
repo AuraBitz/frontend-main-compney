@@ -46,18 +46,18 @@ export function LoginForm() {
         </div>
         <CardTitle className="text-2xl font-bold">Admin Portal</CardTitle>
         <CardDescription>
-          Sign in with email or username
+          Client: email or username · Employee: employee code or email
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username">Email or Username</Label>
+            <Label htmlFor="username">Email, Username or Employee Code</Label>
             <Input
               id="username"
               name="username"
               type="text"
-              placeholder="kaushal@gmail.com or client1"
+              placeholder="EMP001, email@company.com or client1"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required

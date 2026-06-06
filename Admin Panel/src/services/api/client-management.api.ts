@@ -1,4 +1,8 @@
 import Http from "@/services/api/http";
+import {
+  downloadExcelReport,
+  type ReportDownloadParams,
+} from "@/lib/download-excel-report";
 import type { ListQueryPayload } from "@/lib/filter-builder-v2";
 import { defaultListQuery } from "@/lib/list-query";
 import type { ClientManagementRow } from "@/types/client-management.types";
@@ -40,3 +44,10 @@ export const DeleteClientManagement = (id: string | number) => {
     messageSettings: { successMessage: "Client deleted successfully." },
   });
 };
+
+export const DownloadClientsMasterReport = (params: ReportDownloadParams = {}) =>
+  downloadExcelReport(
+    "/client-management/report/download",
+    "clients_master_report",
+    params
+  );

@@ -48,29 +48,58 @@ function getApiErrorMessage(data: unknown, status?: number): string {
   return "Login failed. Please try again.";
 }
 
+async function postLogin(
+  path: string,
+  usernameOrEmail: string,
+  password: string
+) {
+  const url = `${API_SERVER_URL}${API_PREFIX}${path}`;
+  const payload = buildLoginPayload(usernameOrEmail, password);
+
+  return axios.post(url, payload, {
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    timeout: 15_000,
+    validateStatus: () => true,
+  });
+}
+
 export async function loginWithBackend(
   usernameOrEmail: string,
   password: string
 ): Promise<BackendLoginData> {
-  const url = `${API_SERVER_URL}${API_PREFIX}/client-login/login`;
-  const payload = buildLoginPayload(usernameOrEmail, password);
-
   try {
-    const response = await axios.post(url, payload, {
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      timeout: 15_000,
-      validateStatus: () => true,
-    });
+    const clientResponse = await postLogin(
+      "/client-login/login",
+      usernameOrEmail,
+      password
+    );
 
-    if (response.status >= 400) {
-      throw new Error(getApiErrorMessage(response.data, response.status));
+    if (clientResponse.status < 400) {
+      const data = unwrapResponseData<BackendLoginData>(clientResponse.data);
+      if (!data?.user || typeof data.user.id === "undefined") {
+        throw new Error("Invalid login response from API.");
+      }
+      return data;
     }
 
-    const data = unwrapResponseData<BackendLoginData>(response.data);
+    if (clientResponse.status !== 401) {
+      throw new Error(getApiErrorMessage(clientResponse.data, clientResponse.status));
+    }
 
+    const employeeResponse = await postLogin(
+      "/employee-login/login",
+      usernameOrEmail,
+      password
+    );
+
+    if (employeeResponse.status >= 400) {
+      throw new Error(getApiErrorMessage(employeeResponse.data, employeeResponse.status));
+    }
+
+    const data = unwrapResponseData<BackendLoginData>(employeeResponse.data);
     if (!data?.user || typeof data.user.id === "undefined") {
       throw new Error("Invalid login response from API.");
     }

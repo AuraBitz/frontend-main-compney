@@ -1,9 +1,18 @@
 import Http from "@/services/api/http";
+import { defaultListQuery } from "@/lib/list-query";
+
+export interface SubModuleRow {
+  id: number;
+  parent_module_id: number;
+  sub_module_name: string;
+  status?: string;
+}
 
 export const GetAllSubModulesList = (body?: unknown) => {
-  return Http.post({
+  return Http.postList<SubModuleRow>({
     url: "/sub-modules/list",
-    data: body,
+    data: body ?? defaultListQuery,
+    messageSettings: { hideSuccessMessage: true },
   });
 };
 

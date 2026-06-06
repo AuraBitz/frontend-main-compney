@@ -3,6 +3,11 @@ import type { NextRequest } from "next/server";
 import { verifySessionToken } from "@/lib/auth-token";
 import { SESSION_COOKIE_NAME } from "@/lib/constants";
 import { canAccessRoute } from "@/config/permissions";
+import {
+  isManagementUser,
+  isProjectOnlyAllowedPath,
+  isProjectOnlyUser,
+} from "@/lib/project-access";
 import { AUTH_ROUTES, PROTECTED_PATHS } from "@/routes";
 
 export async function middleware(request: NextRequest) {
@@ -16,7 +21,10 @@ export async function middleware(request: NextRequest) {
   );
 
   if (isLogin && session) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    const target = isProjectOnlyUser(session)
+      ? "/projects/check"
+      : "/dashboard";
+    return NextResponse.redirect(new URL(target, request.url));
   }
 
   if (isProtected && !session) {
@@ -25,8 +33,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  if (isProtected && session && isProjectOnlyUser(session)) {
+    if (!isProjectOnlyAllowedPath(pathname)) {
+      return NextResponse.redirect(new URL("/projects/check", request.url));
+    }
+    return NextResponse.next();
+  }
+
   if (isProtected && session && !canAccessRoute(session.role, pathname)) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    const target = isManagementUser(session) ? "/dashboard" : "/projects/check";
+    return NextResponse.redirect(new URL(target, request.url));
   }
 
   return NextResponse.next();
@@ -45,6 +61,8 @@ export const config = {
     "/parent-modules/:path*",
     "/sub-modules",
     "/sub-modules/:path*",
+    "/child-modules",
+    "/child-modules/:path*",
     "/plans",
     "/plans/:path*",
     "/plans-tracker",
@@ -55,5 +73,19 @@ export const config = {
     "/portal/:path*",
     "/role-master",
     "/role-master/:path*",
+    "/payment-type-master",
+    "/payment-type-master/:path*",
+    "/transaction-master",
+    "/transaction-master/:path*",
+    "/permission-master",
+    "/permission-master/:path*",
+    "/project-permission-master",
+    "/project-permission-master/:path*",
+    "/project-role-master",
+    "/project-role-master/:path*",
+    "/employee-master",
+    "/employee-master/:path*",
+    "/restaurant-master",
+    "/restaurant-master/:path*",
   ],
 };

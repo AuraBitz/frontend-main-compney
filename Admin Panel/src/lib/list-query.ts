@@ -17,3 +17,15 @@ export function listQueryForProject(projectId: number): ListQueryPayload {
     },
   };
 }
+
+/** Client record linked to a restaurant */
+export function listQueryForRestaurant(
+  restaurantId: number
+): ListQueryPayload {
+  return {
+    ...defaultListQuery,
+    filters: {
+      restaurant_id: buildFilterClause("equals", restaurantId),
+    },
+  };
+}

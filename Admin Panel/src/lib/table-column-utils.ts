@@ -1,5 +1,5 @@
 import type { ColDef } from "ag-grid-community";
-import { formatDateDisplayIST, IST_TIMEZONE } from "@/utils/format-date";
+import { formatDateDDMMYYYY, IST_TIMEZONE } from "@/utils/format-date";
 
 function istDayTimestamp(value: string | Date): number | null {
   const d = typeof value === "string" ? new Date(value) : value;
@@ -38,7 +38,7 @@ export function withDateColumnFilters<T extends object>(
       floatingFilter: true,
       valueFormatter: (params) => {
         if (params.value == null || params.value === "") return "—";
-        return formatDateDisplayIST(String(params.value)) || "—";
+        return formatDateDDMMYYYY(String(params.value)) || "—";
       },
       filterParams: {
         buttons: ["apply", "reset"],

@@ -8,6 +8,7 @@ interface ProjectPickerGridProps {
   projects: ProjectMasterRow[];
   moduleNameById: Map<number, string>;
   loading?: boolean;
+  selectingId?: number | null;
   onSelect: (project: ProjectMasterRow) => void;
 }
 
@@ -15,6 +16,7 @@ export function ProjectPickerGrid({
   projects,
   moduleNameById,
   loading = false,
+  selectingId = null,
   onSelect,
 }: ProjectPickerGridProps) {
   if (loading) {
@@ -45,10 +47,13 @@ export function ProjectPickerGrid({
           <button
             key={project.id}
             type="button"
+            disabled={selectingId != null}
             onClick={() => onSelect(project)}
             className={cn(
               "group flex flex-col rounded-xl border border-border/80 bg-card p-5 text-left shadow-sm",
-              "transition-all hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              "transition-all hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              selectingId === project.id && "border-primary/50 opacity-80",
+              selectingId != null && selectingId !== project.id && "opacity-60"
             )}
           >
             <div className="mb-3 flex items-start justify-between gap-3">
@@ -67,7 +72,7 @@ export function ProjectPickerGrid({
               </span>
             </div>
             <h3 className="text-base font-semibold tracking-tight text-foreground group-hover:text-primary">
-              {project.name}
+              {selectingId === project.id ? "Opening portal..." : project.name}
             </h3>
             {project.description ? (
               <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">

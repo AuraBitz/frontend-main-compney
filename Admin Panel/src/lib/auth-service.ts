@@ -1,7 +1,10 @@
 import { cookies } from "next/headers";
 import { USE_MOCK } from "@/services/api/config";
 import { loginWithBackend, logoutWithBackend } from "@/lib/auth-api.server";
-import type { BackendLoginAccount } from "@/services/api/login.api";
+import type {
+  BackendLoginAccount,
+  BackendProjectAccess,
+} from "@/services/api/login.api";
 import { createSessionToken, verifySessionToken } from "@/lib/auth-token";
 import {
   BACKEND_ACCESS_COOKIE_NAME,
@@ -12,7 +15,7 @@ import type {
   LoginActionResult,
   LogoutActionResult,
 } from "@/types/auth-action.types";
-import type { Role, SessionUser } from "@/types/auth.types";
+import type { AccessType, Role, SessionUser } from "@/types/auth.types";
 
 const cookieOptions = {
   httpOnly: true,
@@ -30,6 +33,9 @@ const MOCK_USERS: (SessionUser & { password: string })[] = [
     email: "super@admin.com",
     password: "admin123",
     role: "super_admin",
+    accessType: "management",
+    overallAccess: true,
+    allowedProjectIds: [],
   },
   {
     id: "2",
@@ -37,6 +43,9 @@ const MOCK_USERS: (SessionUser & { password: string })[] = [
     email: "admin@company.com",
     password: "admin123",
     role: "admin",
+    accessType: "management",
+    overallAccess: true,
+    allowedProjectIds: [],
   },
   {
     id: "3",
@@ -44,6 +53,9 @@ const MOCK_USERS: (SessionUser & { password: string })[] = [
     email: "manager@company.com",
     password: "admin123",
     role: "manager",
+    accessType: "management",
+    overallAccess: true,
+    allowedProjectIds: [],
   },
   {
     id: "4",
@@ -51,6 +63,9 @@ const MOCK_USERS: (SessionUser & { password: string })[] = [
     email: "viewer@company.com",
     password: "admin123",
     role: "viewer",
+    accessType: "management",
+    overallAccess: true,
+    allowedProjectIds: [],
   },
 ];
 
@@ -72,17 +87,93 @@ function omitPassword<T extends { password: string }>(
   return sessionUser;
 }
 
-function mapBackendUser(account: BackendLoginAccount): SessionUser {
+function normalizeProjectAccess(
+  projectAccess?: BackendProjectAccess
+): Pick<
+  SessionUser,
+  | "accessType"
+  | "projectRoleId"
+  | "projectRoleName"
+  | "roleMasterId"
+  | "roleMasterName"
+  | "overallAccess"
+  | "allowedProjectIds"
+  | "isClientLogin"
+  | "restaurantId"
+  | "restaurantName"
+  | "ownerName"
+  | "planId"
+> {
+  const accessType: AccessType = projectAccess?.accessType ?? "management";
+  const projectIds = (projectAccess?.projectIds ?? [])
+    .map(Number)
+    .filter(Number.isFinite);
+
+  const roleMasterId = projectAccess?.roleMasterId;
+  const parsedRoleMasterId =
+    roleMasterId != null && Number.isFinite(Number(roleMasterId))
+      ? Number(roleMasterId)
+      : null;
+
+  const planIdRaw = projectAccess?.planId;
+  const planId =
+    planIdRaw != null && Number.isFinite(Number(planIdRaw))
+      ? Number(planIdRaw)
+      : null;
+
+  return {
+    accessType,
+    projectRoleId: projectAccess?.projectRoleId ?? null,
+    projectRoleName: projectAccess?.projectRoleName?.trim() || null,
+    roleMasterId: parsedRoleMasterId,
+    roleMasterName: projectAccess?.roleMasterName?.trim() || null,
+    overallAccess: projectAccess?.overallAccess ?? accessType === "management",
+    allowedProjectIds: projectIds,
+    isClientLogin: projectAccess?.accessKind === "client",
+    restaurantId:
+      projectAccess?.restaurantId != null &&
+      Number.isFinite(Number(projectAccess.restaurantId))
+        ? Number(projectAccess.restaurantId)
+        : null,
+    restaurantName: projectAccess?.restaurantName?.trim() || null,
+    ownerName: projectAccess?.ownerName?.trim() || null,
+    planId,
+  };
+}
+
+function resolveSessionRole(
+  backendRole: string,
+  access: Pick<SessionUser, "accessType">
+): Role {
+  if (backendRole === "employee") {
+    return access.accessType === "management" ? "admin" : "viewer";
+  }
+  if (access.accessType === "project") {
+    return "viewer";
+  }
+  return mapBackendRole(backendRole);
+}
+
+function mapBackendUser(
+  account: BackendLoginAccount,
+  projectAccess?: BackendProjectAccess
+): SessionUser {
+  const access = normalizeProjectAccess(projectAccess);
   const name =
+    access.ownerName ||
+    account.employee_name?.trim() ||
     account.username?.trim() ||
     account.email?.split("@")[0] ||
     "User";
+  const backendRole = account.role ?? "client";
+  const role = resolveSessionRole(backendRole, access);
 
   return {
     id: String(account.id),
     name,
     email: account.email,
-    role: mapBackendRole(account.role ?? "client"),
+    role,
+    ...access,
   };
 }
 
@@ -135,7 +226,7 @@ export async function login(
       token = await createSessionToken(user);
     } else {
       const data = await loginWithBackend(identifier, password);
-      user = mapBackendUser(data.user);
+      user = mapBackendUser(data.user, data.projectAccess);
       token = await createSessionToken(user);
 
       const cookieStore = await cookies();

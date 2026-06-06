@@ -2,7 +2,8 @@ export type ClientPlanStatus = "Active" | "Deactivate" | "Blocked";
 
 export interface ClientManagementRow {
   id: number;
-  company_name?: string | null;
+  restaurant_id?: number | null;
+  restaurant_name?: string | null;
   owner_name: string;
   mobile?: string | null;
   email?: string | null;

@@ -3,7 +3,7 @@ import type { ClientManagementRow } from "@/types/client-management.types";
 import {
   planListApiObject,
   projectListApiObject,
-  rolesListApiObject,
+  restaurantListApiObject,
 } from "@/lib/form-api-objects";
 
 const LOGIN_STATUS_OPTIONS: DynamicSelectOption[] = [
@@ -21,12 +21,12 @@ export interface ClientLoginFormSlice {
 export interface ClientFormOptions {
   planOptions?: DynamicSelectOption[];
   projectOptions?: DynamicSelectOption[];
-  roleOptions?: DynamicSelectOption[];
+  restaurantOptions?: DynamicSelectOption[];
 }
 
 export function getEmptyClientFormData(): Record<string, unknown> {
   return {
-    company_name: "",
+    restaurant_id: "",
     contact_name: "",
     mobile: "",
     email: "",
@@ -38,12 +38,11 @@ export function getEmptyClientFormData(): Record<string, unknown> {
     plan_id: "",
     _project_label: "",
     _plan_label: "",
+    _restaurant_label: "",
     login_id: "",
     username: "",
     login_email: "",
     password: "",
-    role: "client",
-    _role_label: "",
     login_status: "active",
   };
 }
@@ -52,21 +51,15 @@ export function mapClientToFormData(
   row: ClientManagementRow,
   login?: ClientLoginFormSlice | null
 ): Record<string, unknown> {
-  const companyFromDb = String(row.company_name ?? "").trim();
-  let company_name = companyFromDb;
   let contact_name = String(row.owner_name ?? "").trim();
-  if (!companyFromDb) {
-    const parts = (row.owner_name ?? "").split(" / ");
-    if (parts.length > 1) {
-      company_name = parts[0]?.trim() ?? "";
-      contact_name = parts[1]?.trim() ?? "";
-    } else {
-      company_name = (row.owner_name ?? "").trim();
-      contact_name = "";
-    }
+  if (!row.restaurant_name && row.owner_name?.includes(" / ")) {
+    const parts = row.owner_name.split(" / ");
+    contact_name = parts[1]?.trim() ?? contact_name;
   }
+
   return {
-    company_name,
+    restaurant_id:
+      row.restaurant_id != null ? String(row.restaurant_id) : "",
     contact_name,
     mobile: row.mobile ?? "",
     email: row.email ?? "",
@@ -78,13 +71,12 @@ export function mapClientToFormData(
     plan_id: row.plan_id != null ? String(row.plan_id) : "",
     _project_label: row.project_name ?? "",
     _plan_label: row.plan_type ?? "",
+    _restaurant_label: row.restaurant_name ?? "",
     login_id: row.login_id != null ? String(row.login_id) : "",
     username: login?.username ?? "",
     login_email: login?.email ?? "",
     password: "",
-    role: login?.role ?? "client",
     login_status: login?.status ?? "active",
-    _role_label: "",
   };
 }
 
@@ -96,8 +88,7 @@ export function enrichClientFormData(
   const next = { ...data };
   const projectId = String(next.project_id ?? "");
   const planId = String(next.plan_id ?? "");
-  const roleCode = String(next.role ?? "");
-
+  const restaurantId = String(next.restaurant_id ?? "");
   if (!String(next._project_label ?? "").trim()) {
     next._project_label =
       options.projectOptions?.find((o) => o.value === projectId)?.label ?? "";
@@ -106,10 +97,10 @@ export function enrichClientFormData(
     next._plan_label =
       options.planOptions?.find((o) => o.value === planId)?.label ?? "";
   }
-  if (!String(next._role_label ?? "").trim()) {
-    next._role_label =
-      options.roleOptions?.find((o) => o.value === roleCode)?.label ??
-      roleCode;
+  if (!String(next._restaurant_label ?? "").trim()) {
+    next._restaurant_label =
+      options.restaurantOptions?.find((o) => o.value === restaurantId)?.label ??
+      "";
   }
   return next;
 }
@@ -121,9 +112,10 @@ export function mapFormToLoginPayload(
   const payload: Record<string, unknown> = {
     username: String(data.username ?? "").trim(),
     email: String(data.login_email ?? "").trim(),
-    role: String(data.role ?? "client").trim() || "client",
+    role: "client",
     status: String(data.login_status ?? "active").toLowerCase(),
   };
+
   const password = String(data.password ?? "");
   if (password) {
     payload.password = password;
@@ -137,17 +129,21 @@ export function mapFormToClientPayload(
   data: Record<string, unknown>,
   loginId?: number | null
 ) {
-  const company_name = String(data.company_name ?? "").trim();
   const contact = String(data.contact_name ?? "").trim();
-  const owner_name = contact || company_name;
+  const owner_name = contact;
 
   const planId = data.plan_id ? Number(data.plan_id) : null;
   const projectId = data.project_id ? Number(data.project_id) : null;
+  const restaurantRaw = String(data.restaurant_id ?? "").trim();
+  const restaurantId = restaurantRaw ? Number(restaurantRaw) : null;
   const resolvedLoginId =
     loginId ?? (data.login_id ? Number(data.login_id) : null);
 
   return {
-    company_name,
+    restaurant_id:
+      restaurantId != null && Number.isFinite(restaurantId)
+        ? restaurantId
+        : null,
     owner_name,
     mobile: String(data.mobile ?? "").trim() || null,
     email: String(data.email ?? "").trim() || null,
@@ -165,11 +161,22 @@ export function mapFormToClientPayload(
 function clientDetailFields(readOnly: boolean) {
   return [
     {
-      name: "company_name",
-      label: "Company Name",
-      type: "text" as const,
+      name: "restaurant_id",
+      label: "Select Restaurant",
+      type: "input-sidebar" as const,
       required: true,
-      placeholder: "Enter company or store name",
+      placeholder: "Click to choose restaurant",
+      apiObject: restaurantListApiObject,
+      selectedData: "restaurant_id",
+      rowValueKey: "id",
+      displayedData: "restaurant_name",
+      displayFields: ["restaurant_name", "restaurant_mobile", "status"],
+      customColumnDefs: [
+        { key: "restaurant_name", label: "Restaurant" },
+        { key: "restaurant_mobile", label: "Mobile" },
+        { key: "status", label: "Status" },
+      ],
+      cacheFieldName: "_restaurant_label",
       readOnly,
     },
     {
@@ -285,18 +292,6 @@ function loginDetailFields(
       condition: () => mode !== "view",
     },
     {
-      name: "role",
-      label: "Role",
-      type: "api-select" as const,
-      required: !readOnly,
-      placeholder: "Select role",
-      apiObject: rolesListApiObject,
-      selectedDataKey: { label: "role_name", val: "role_code" },
-      displayedData: "role_name",
-      cacheFieldName: "_role_label",
-      readOnly,
-    },
-    {
       name: "login_status",
       label: "Status",
       type: "select" as const,
@@ -344,6 +339,13 @@ export function buildClientFormConfig(
         tab: "client",
         gridCols: "grid-cols-1 md:grid-cols-2",
         fields: clientDetailFields(readOnly).map((f) => {
+          if (f.name === "restaurant_id") {
+            return {
+              ...f,
+              viewDisplayResolver: (fd: Record<string, unknown>) =>
+                String(fd._restaurant_label ?? fd.restaurant_id ?? ""),
+            };
+          }
           if (f.name === "project_id") {
             return {
               ...f,
@@ -365,16 +367,7 @@ export function buildClientFormConfig(
         title: "Login Details",
         tab: "login",
         gridCols: "grid-cols-1 md:grid-cols-2",
-        fields: loginFields.map((f) => {
-          if (f.name === "role") {
-            return {
-              ...f,
-              viewDisplayResolver: (fd: Record<string, unknown>) =>
-                String(fd._role_label ?? fd.role ?? ""),
-            };
-          }
-          return f;
-        }),
+        fields: loginFields,
       },
     ],
   };

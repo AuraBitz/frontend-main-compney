@@ -13,6 +13,7 @@ import {
   loginRequest,
   logoutRequest,
 } from "@/lib/auth-client";
+import { performPostLoginRedirect } from "@/lib/post-login-redirect";
 import type { SessionUser } from "@/types/auth.types";
 
 interface AuthState {
@@ -41,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(result.error);
     }
     setUser(result.user);
-    window.location.assign("/dashboard");
+    await performPostLoginRedirect(result.user);
   }, []);
 
   const logout = useCallback(async () => {

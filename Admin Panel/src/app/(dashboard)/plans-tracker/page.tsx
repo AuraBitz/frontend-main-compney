@@ -3,9 +3,13 @@
 import { useCallback, useMemo, useState } from "react";
 import type { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { PageShell } from "@/layout/PageShell";
+import { ReportDownloadToolbar } from "@/components/report/ReportDownloadToolbar";
 import { DynamicTable } from "@/components/dynamicTable";
 import type { ListQueryPayload } from "@/lib/filter-builder-v2";
-import { GetAllPlansTrackerList } from "@/services/api/plans-tracker.api";
+import {
+  DownloadPlansTrackerReport,
+  GetAllPlansTrackerList,
+} from "@/services/api/plans-tracker.api";
 import type { PlansTrackerRow } from "@/types/plans-tracker.types";
 
 function formatAmount(
@@ -84,6 +88,9 @@ export default function PlansTrackerPage() {
           {error}
         </p>
       )}
+      <div className="mb-4">
+        <ReportDownloadToolbar onDownload={DownloadPlansTrackerReport} />
+      </div>
       <DynamicTable<PlansTrackerRow>
         rowData={[]}
         columnDefs={columnDefs}

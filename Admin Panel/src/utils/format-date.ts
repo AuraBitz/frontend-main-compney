@@ -46,6 +46,7 @@ export function hasMeaningfulTime(
   if (typeof value === "string") {
     const s = value.trim();
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+    if (/^\d{4}-\d{2}-\d{2}T00:00:00(\.000)?Z?$/i.test(s)) return false;
 
     const timeInString = s.match(/[T ]\d{2}:(\d{2})(?::(\d{2}))?/);
     if (timeInString) {
@@ -62,7 +63,7 @@ export function hasMeaningfulTime(
   return h !== 0 || m !== 0 || s !== 0;
 }
 
-/** Display date as dd-mm-yyyy (IST) */
+/** Display date as DD/MM/YYYY (IST) */
 export function formatDateDDMMYYYY(
   value: string | Date | null | undefined
 ): string {
@@ -71,17 +72,48 @@ export function formatDateDDMMYYYY(
   if (typeof value === "string") {
     const isoDate = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (isoDate) {
-      return `${isoDate[3]}-${isoDate[2]}-${isoDate[1]}`;
+      return `${isoDate[3]}/${isoDate[2]}/${isoDate[1]}`;
     }
   }
 
   const d = parseDate(value);
   if (!d) return String(value);
 
-  const formatted = new Intl.DateTimeFormat("en-GB", DATE_ONLY_FORMAT).format(
-    d
+  return new Intl.DateTimeFormat("en-GB", DATE_ONLY_FORMAT).format(d);
+}
+
+/** 24h or 12h time string → hh:mm AM/PM (e.g. 14:30 → 02:30 PM) */
+export function formatTimeString12(
+  value: string | null | undefined
+): string {
+  if (value == null || value === "") return "";
+
+  const raw = value.trim();
+  const withPeriod = raw.match(
+    /^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i
   );
-  return formatted.replace(/\//g, "-");
+  if (withPeriod) {
+    const h = Number(withPeriod[1]);
+    const m = withPeriod[2];
+    const period = withPeriod[3].toUpperCase();
+    return `${String(h).padStart(2, "0")}:${m} ${period}`;
+  }
+
+  const twentyFour = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (twentyFour) {
+    let h = Number(twentyFour[1]);
+    const m = twentyFour[2];
+    const period = h >= 12 ? "PM" : "AM";
+    if (h === 0) h = 12;
+    else if (h > 12) h -= 12;
+    return `${String(h).padStart(2, "0")}:${m} ${period}`;
+  }
+
+  const fromDate = formatTimeIST12(value);
+  if (fromDate) {
+    return fromDate.replace(/:\d{2}\s/, " ");
+  }
+  return raw;
 }
 
 /** Time in IST, 12-hour with seconds — e.g. 02:30:45 PM */
@@ -117,7 +149,7 @@ export function formatDateDisplayIST(
   const datePart = formatDateDDMMYYYY(value);
   if (!datePart) return "";
   if (!hasMeaningfulTime(value)) return datePart;
-  const timePart = formatTimeIST12(value);
+  const timePart = formatTimeIST12(value).replace(/:\d{2}\s/, " ");
   return timePart ? `${datePart} ${timePart}` : datePart;
 }
 

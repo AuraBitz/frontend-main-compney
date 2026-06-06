@@ -5,11 +5,17 @@ import { DashboardRoutes } from "@/routes/dashboard.routes";
 import { ClientManagementRoutes } from "@/routes/client-management.routes";
 import { ClientLoginRoutes } from "@/routes/client-login.routes";
 import { ParentModulesRoutes } from "@/routes/parent-modules.routes";
-import { SubModulesRoutes } from "@/routes/sub-modules.routes";
+import { ChildModulesRoutes } from "@/routes/child-modules.routes";
 import { PlansRoutes } from "@/routes/plans.routes";
 import { ProjectsRoutes } from "@/routes/projects.routes";
 import { RolesRoutes } from "@/routes/roles.routes";
+import { PaymentTypeRoutes } from "@/routes/payment-type.routes";
+import { TransactionsRoutes } from "@/routes/transactions.routes";
+import { PermissionsRoutes } from "@/routes/permissions.routes";
 import { PlansTrackerRoutes } from "@/routes/plans-tracker.routes";
+import { ProjectPermissionRoutes } from "@/routes/project-permission-master.routes";
+import { ProjectRoleRoutes } from "@/routes/project-role-master.routes";
+import { EmployeeMasterRoutes } from "@/routes/employee-master.routes";
 
 export const APP_ROUTES: RouteConfig[] = [
   ...LoginRoutes,
@@ -17,21 +23,28 @@ export const APP_ROUTES: RouteConfig[] = [
   ...ClientManagementRoutes,
   ...ClientLoginRoutes,
   ...ParentModulesRoutes,
-  ...SubModulesRoutes,
+  ...ChildModulesRoutes,
   ...PlansRoutes,
   ...ProjectsRoutes,
   ...RolesRoutes,
+  ...PaymentTypeRoutes,
+  ...TransactionsRoutes,
+  ...PermissionsRoutes,
   ...PlansTrackerRoutes,
+  ...ProjectPermissionRoutes,
+  ...ProjectRoleRoutes,
+  ...EmployeeMasterRoutes,
 ];
 
 /** Sidebar-only routes (Dashboard + Management) */
 const SIDEBAR_NAV_KEYS = new Set([
   "dashboard",
   "client-management-list",
-  "plans-list",
-  "plans-tracker-list",
   "projects-list",
-  "role-master-list",
+  "transaction-master-list",
+  "project-role-master-list",
+  "project-permission-master-list",
+  "employee-master-list",
 ]);
 
 export const NAV_ROUTES: NavRouteConfig[] = APP_ROUTES.filter(

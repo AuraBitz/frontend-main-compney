@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Building2,
   CreditCard,
@@ -36,8 +36,13 @@ import {
 } from "@/lib/dashboard-amount-utils";
 import { formatINR } from "@/lib/format-currency";
 import { listQueryForProject } from "@/lib/list-query";
+import {
+  portalChildPath,
+  portalModulePath,
+} from "@/restaurant-management-admin-panel/lib/portal-routes";
 
 export function ProjectPortalDashboardView() {
+  const router = useRouter();
   const { session } = useProjectPortal();
   const [dateRange, setDateRange] = useState<DateRangeValue>(defaultDateRange);
   const [appliedRange, setAppliedRange] = useState<DateRangeValue>(
@@ -165,7 +170,9 @@ export function ProjectPortalDashboardView() {
   }
 
   const planCount = session.planIds?.length ?? 0;
-  const moduleCount = session.modules.length;
+  const moduleCount =
+    session.modules.length +
+    session.modules.reduce((n, m) => n + (m.children?.length ?? 0), 0);
 
   return (
     <div className="dashboard-page dashboard-page--portal space-y-6">
@@ -264,16 +271,42 @@ export function ProjectPortalDashboardView() {
           <h3 className="font-heading text-sm font-semibold text-foreground">
             Quick modules
           </h3>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 space-y-3">
             {session.modules.map((mod) => (
-              <Link
-                key={mod.id}
-                href={`/portal/module/${mod.id}`}
-                className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
-              >
-                <Layers className="size-4" />
-                {mod.name}
-              </Link>
+              <div key={mod.id}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(portalModulePath(session.projectId, mod.id))
+                  }
+                  className="dashboard-quick-link inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+                >
+                  <Layers className="size-4" />
+                  {mod.name}
+                </button>
+                {(mod.children ?? []).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2 pl-4">
+                    {(mod.children ?? []).map((child) => (
+                      <button
+                        key={child.id}
+                        type="button"
+                        onClick={() =>
+                          router.push(
+                            portalChildPath(
+                              session.projectId,
+                              mod.id,
+                              child.id
+                            )
+                          )
+                        }
+                        className="dashboard-quick-link inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border/70 bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
+                      >
+                        {child.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         </div>

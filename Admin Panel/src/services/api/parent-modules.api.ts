@@ -1,9 +1,18 @@
 import Http from "@/services/api/http";
+import { defaultListQuery } from "@/lib/list-query";
+import type { ParentModuleRow } from "@/lib/parent-module-form-config";
+
+export const GetParentModuleById = (id: string | number) => {
+  return Http.get<ParentModuleRow>({
+    url: `/parent-modules/${id}`,
+    messageSettings: { hideSuccessMessage: true },
+  });
+};
 
 export const GetAllParentModulesList = (body?: unknown) => {
-  return Http.postList<{ id: number; module_name: string }>({
+  return Http.postList<ParentModuleRow>({
     url: "/parent-modules/list",
-    data: body,
+    data: body ?? defaultListQuery,
     messageSettings: { hideSuccessMessage: true },
   });
 };

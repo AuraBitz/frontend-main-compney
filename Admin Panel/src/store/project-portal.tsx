@@ -12,10 +12,19 @@ import { useRouter } from "next/navigation";
 
 const STORAGE_KEY = "project-portal-session";
 
+export interface ProjectPortalChildModule {
+  id: number;
+  name: string;
+  parentId: number;
+}
+
 export interface ProjectPortalModule {
   id: number;
   name: string;
+  children: ProjectPortalChildModule[];
 }
+
+export type ProjectPortalViewMode = "project" | "restaurant";
 
 export interface ProjectPortalSession {
   projectId: number;
@@ -25,10 +34,19 @@ export interface ProjectPortalSession {
   planIds?: number[];
   status?: string;
   description?: string | null;
+  /** When previewing a restaurant portal (Check Restaurant). */
+  viewMode?: ProjectPortalViewMode;
+  restaurantId?: number | null;
+  restaurantName?: string | null;
+  ownerName?: string | null;
+  planId?: number | null;
+  restaurantViewReturnPath?: string | null;
 }
 
 interface ProjectPortalContextValue {
   session: ProjectPortalSession | null;
+  /** True after sessionStorage has been read on the client. */
+  hydrated: boolean;
   isActive: boolean;
   enterPortal: (session: ProjectPortalSession) => void;
   exitPortal: () => void;
@@ -45,10 +63,20 @@ function loadSession(): ProjectPortalSession | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as ProjectPortalSession;
     if (!parsed?.projectId || !parsed?.projectName) return null;
+    if (Array.isArray(parsed.modules)) {
+      parsed.modules = parsed.modules.map((mod) => ({
+        ...mod,
+        children: mod.children ?? [],
+      }));
+    }
     return parsed;
   } catch {
     return null;
   }
+}
+
+export function persistProjectPortalSession(session: ProjectPortalSession) {
+  saveSession(session);
 }
 
 function saveSession(session: ProjectPortalSession | null) {
@@ -85,12 +113,13 @@ export function ProjectPortalProvider({
   const exitPortal = useCallback(() => {
     setSession(null);
     saveSession(null);
-    router.push("/dashboard");
+    router.push("/projects/check");
   }, [router]);
 
   const value = useMemo(
     () => ({
       session: hydrated ? session : null,
+      hydrated,
       isActive: hydrated && session != null,
       enterPortal,
       exitPortal,

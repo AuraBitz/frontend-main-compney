@@ -4,7 +4,8 @@ export interface ClientLoginRow {
   id: number;
   username: string;
   email: string;
-  role: string;
+  role?: string;
+  project_role_id?: number | null;
   status: string;
   device_id?: string | null;
   created_at?: string;

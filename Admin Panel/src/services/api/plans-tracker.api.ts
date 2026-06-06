@@ -1,4 +1,8 @@
 import Http from "@/services/api/http";
+import {
+  downloadExcelReport,
+  type ReportDownloadParams,
+} from "@/lib/download-excel-report";
 import type { PlansTrackerRow } from "@/types/plans-tracker.types";
 import type { ListQueryPayload } from "@/lib/filter-builder-v2";
 
@@ -22,3 +26,10 @@ export const PurchasePlanGetPlan = (body: PlanPurchasePayload) => {
     data: body,
   });
 };
+
+export const DownloadPlansTrackerReport = (params: ReportDownloadParams = {}) =>
+  downloadExcelReport(
+    "/plans-tracker/report/download",
+    "plans_tracker_report",
+    params
+  );
