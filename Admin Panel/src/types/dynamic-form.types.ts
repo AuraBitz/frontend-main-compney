@@ -18,7 +18,8 @@ export type DynamicFieldType =
   | "select"
   | "multiselect"
   | "api-select"
-  | "input-sidebar";
+  | "input-sidebar"
+  | "string-list";
 
 export type DynamicFormMode = "create" | "edit" | "view";
 
@@ -82,6 +83,8 @@ export interface DynamicFormConfig {
   initialData: Record<string, unknown>;
   sections: DynamicFormSection[];
   tabs?: DynamicFormTab[];
+  /** When set, switching tabs updates this form field (e.g. range_type). */
+  tabValueField?: string;
   submitLabel?: string;
   cancelLabel?: string;
   showBackButton?: boolean;

@@ -76,6 +76,13 @@ export default function PlanMasterPage() {
       },
       { field: "plan_type", headerName: "Plan Type", minWidth: 140 },
       {
+        field: "range_type",
+        headerName: "Billing",
+        maxWidth: 110,
+        valueFormatter: (p) =>
+          p.value === "annually" ? "Annually" : "Monthly",
+      },
+      {
         field: "amount",
         headerName: "Amount",
         maxWidth: 110,
@@ -86,6 +93,16 @@ export default function PlanMasterPage() {
         field: "plan_valid_days",
         headerName: "Valid Days",
         maxWidth: 110,
+      },
+      {
+        field: "features",
+        headerName: "Features",
+        minWidth: 140,
+        flex: 0.6,
+        valueFormatter: (p) => {
+          const items = Array.isArray(p.value) ? p.value : [];
+          return items.length ? `${items.length} feature(s)` : "—";
+        },
       },
       {
         field: "plan_modules_id",

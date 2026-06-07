@@ -2,6 +2,10 @@ export function portalProjectPath(projectId: number) {
   return `/portal/project/${projectId}`;
 }
 
+export function portalProfilePath(projectId: number) {
+  return `/portal/project/${projectId}/profile`;
+}
+
 export function portalModulePath(projectId: number, parentModuleId: number) {
   return `/portal/project/${projectId}/module/${parentModuleId}`;
 }

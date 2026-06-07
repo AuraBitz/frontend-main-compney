@@ -23,6 +23,7 @@ export type PortalFeatureKey =
   | "restaurant_floor_master"
   | "restaurant_table_master"
   | "restaurant_booking_master"
+  | "restaurant_order_master"
   | "restaurant_transaction_master"
   | "restaurant_payment_master"
   | "restaurant_live_tables"
@@ -93,6 +94,9 @@ const CHILD_ALIASES: Record<string, PortalFeatureKey> = {
   restaurant_booking_master: "restaurant_booking_master",
   booking_master: "restaurant_booking_master",
   bookings: "restaurant_booking_master",
+  restaurant_order_master: "restaurant_order_master",
+  order_master: "restaurant_order_master",
+  orders: "restaurant_order_master",
   live_tables: "restaurant_live_tables",
   live_table: "restaurant_live_tables",
   restaurant_live_tables: "restaurant_live_tables",
@@ -204,6 +208,12 @@ const FEATURE_META: Record<
     supportsCreate: true,
     projectScoped: false,
   },
+  restaurant_order_master: {
+    title: "Order Master",
+    description: "Dine-in orders with auto order numbers",
+    supportsCreate: true,
+    projectScoped: false,
+  },
   restaurant_transaction_master: {
     title: "Transaction Master",
     description: "Restaurant customer transactions",
@@ -276,6 +286,12 @@ const RESTAURANT_BOOKING_ALIASES = new Set([
   "bookings",
 ]);
 
+const RESTAURANT_ORDER_ALIASES = new Set([
+  "restaurant_order_master",
+  "order_master",
+  "orders",
+]);
+
 const RESTAURANT_MENU_ALIASES = new Set([
   "menu_master",
   "menu",
@@ -303,6 +319,12 @@ function matchesRestaurantCustomerKey(childKey: string): boolean {
 function matchesRestaurantBookingKey(childKey: string): boolean {
   if (RESTAURANT_BOOKING_ALIASES.has(childKey)) return true;
   return childKey.includes("booking");
+}
+
+function matchesRestaurantOrderMasterKey(childKey: string): boolean {
+  if (RESTAURANT_ORDER_ALIASES.has(childKey)) return true;
+  if (childKey.includes("order_management")) return false;
+  return childKey.includes("order") && !childKey.includes("payment");
 }
 
 function matchesRestaurantFloorKey(childKey: string): boolean {
@@ -394,6 +416,9 @@ export function resolveEffectivePortalFeature(
   }
   if (matchesRestaurantBookingKey(childKey)) {
     return restaurantFeature("restaurant_booking_master", childName);
+  }
+  if (matchesRestaurantOrderMasterKey(childKey)) {
+    return restaurantFeature("restaurant_order_master", childName);
   }
   if (matchesRestaurantMenuKey(childKey)) {
     return restaurantFeature("menu_master", childName);

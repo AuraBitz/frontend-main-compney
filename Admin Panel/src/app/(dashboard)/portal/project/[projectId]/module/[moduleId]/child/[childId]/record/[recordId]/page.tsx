@@ -5,6 +5,7 @@ import { PageShell } from "@/layout/PageShell";
 import { PortalProjectGate } from "@/restaurant-management-admin-panel/components/PortalProjectGate";
 import { PortalFeatureRecord } from "@/restaurant-management-admin-panel/features/portal-feature-record";
 import { PortalBookingForm } from "@/restaurant-management-admin-panel/features/portal-feature-booking";
+import { PortalOrderForm } from "@/restaurant-management-admin-panel/features/portal-feature-order";
 import {
   PortalPaymentForm,
   PortalTransactionForm,
@@ -133,6 +134,20 @@ function PortalRecordViewContent() {
     return (
       <PageShell title="View Booking" description={effectiveFeature.description}>
         <PortalBookingForm
+          mode="view"
+          restaurantId={restaurantId}
+          recordId={recordId}
+          onCancel={() => router.push(listPath)}
+          onEdit={() => router.push(editPath)}
+        />
+      </PageShell>
+    );
+  }
+
+  if (effectiveFeature.featureKey === "restaurant_order_master" && restaurantId) {
+    return (
+      <PageShell title="View Order" description={effectiveFeature.description}>
+        <PortalOrderForm
           mode="view"
           restaurantId={restaurantId}
           recordId={recordId}

@@ -6,7 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { nextMenuId } from "@/restaurant-management-admin-panel/lib/menu-items-utils";
-import type { MenuCategoryRow } from "@/types/restaurant-ops.types";
+import {
+  isMenuItemAvailable,
+  normalizeAvailableStatus,
+  withCategoryAvailability,
+} from "@/restaurant-management-admin-panel/lib/menu-availability-utils";
+import type { MenuAvailableStatus, MenuCategoryRow, MenuItemRow } from "@/types/restaurant-ops.types";
 import { formatINR } from "@/lib/format-currency";
 
 interface MenuItemsEditorProps {
@@ -33,6 +38,35 @@ function ItemPreview({ src, name }: { src?: string | null; name: string }) {
   );
 }
 
+function AvailabilitySelect({
+  value,
+  onChange,
+  disabled = false,
+  label,
+}: {
+  value?: MenuAvailableStatus;
+  onChange: (next: MenuAvailableStatus) => void;
+  disabled?: boolean;
+  label: string;
+}) {
+  return (
+    <div className="w-40">
+      <Label className="text-xs">{label}</Label>
+      <select
+        className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
+        value={normalizeAvailableStatus(value)}
+        disabled={disabled}
+        onChange={(e) =>
+          onChange(e.target.value as MenuAvailableStatus)
+        }
+      >
+        <option value="available">Available</option>
+        <option value="not_available">Not available</option>
+      </select>
+    </div>
+  );
+}
+
 export function MenuItemsEditor({
   value,
   onChange,
@@ -41,16 +75,32 @@ export function MenuItemsEditor({
   const categories = value ?? [];
 
   const updateCategory = (index: number, patch: Partial<MenuCategoryRow>) => {
-    const next = categories.map((cat, i) =>
-      i === index ? { ...cat, ...patch } : cat
-    );
+    const next = categories.map((cat, i) => {
+      if (i !== index) return cat;
+      const merged = { ...cat, ...patch };
+      if (patch.available_status === "not_available") {
+        return {
+          ...merged,
+          items: (merged.items ?? []).map((item) => ({
+            ...item,
+            available_status: "not_available" as const,
+          })),
+        };
+      }
+      return merged;
+    });
     onChange(next);
   };
 
   const addCategory = () => {
     onChange([
       ...categories,
-      { id: nextMenuId(categories), title: "", items: [] },
+      {
+        id: nextMenuId(categories),
+        title: "",
+        available_status: "available",
+        items: [],
+      },
     ]);
   };
 
@@ -64,7 +114,7 @@ export function MenuItemsEditor({
     updateCategory(catIndex, {
       items: [
         ...items,
-        { id: nextMenuId(items), name: "", amount: 0, image: "" },
+        { id: nextMenuId(items), name: "", amount: 0, image: "", available_status: "available" },
       ],
     });
   };
@@ -72,7 +122,7 @@ export function MenuItemsEditor({
   const updateItem = (
     catIndex: number,
     itemIndex: number,
-    patch: Partial<{ name: string; amount: number; image: string }>
+    patch: Partial<MenuItemRow>
   ) => {
     const cat = categories[catIndex];
     const items = (cat?.items ?? []).map((item, i) =>
@@ -94,14 +144,27 @@ export function MenuItemsEditor({
     }
     return (
       <div className="space-y-6">
-        {categories.map((cat) => (
+        {categories.map((cat) => {
+          const resolved = withCategoryAvailability(cat);
+          return (
           <div key={cat.id} className="space-y-3">
-            <p className="font-semibold text-foreground">{cat.title || "—"}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-foreground">{cat.title || "—"}</p>
+              {normalizeAvailableStatus(cat.available_status) === "not_available" ? (
+                <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">
+                  Category unavailable
+                </span>
+              ) : null}
+            </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {(cat.items ?? []).map((item) => (
+              {(resolved.items ?? []).map((item) => (
                 <article
                   key={item.id}
-                  className="overflow-hidden rounded-xl border border-border/80 bg-card"
+                  className={`overflow-hidden rounded-xl border bg-card ${
+                    isMenuItemAvailable(item, cat)
+                      ? "border-border/80"
+                      : "border-destructive/30 opacity-70"
+                  }`}
                 >
                   <ItemPreview src={item.image} name={item.name} />
                   <div className="space-y-1 p-3">
@@ -109,12 +172,17 @@ export function MenuItemsEditor({
                     <p className="text-sm font-medium text-primary">
                       {formatINR(item.amount)}
                     </p>
+                    {!isMenuItemAvailable(item, cat) ? (
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-destructive">
+                        Not available
+                      </p>
+                    ) : null}
                   </div>
                 </article>
               ))}
             </div>
           </div>
-        ))}
+        );})}
       </div>
     );
   }
@@ -137,6 +205,13 @@ export function MenuItemsEditor({
                 }
               />
             </div>
+            <AvailabilitySelect
+              label="Category availability"
+              value={cat.available_status}
+              onChange={(available_status) =>
+                updateCategory(catIndex, { available_status })
+              }
+            />
             <Button
               type="button"
               variant="outline"
@@ -180,6 +255,17 @@ export function MenuItemsEditor({
                       }
                     />
                   </div>
+                  <AvailabilitySelect
+                    label="Item availability"
+                    value={item.available_status}
+                    disabled={
+                      normalizeAvailableStatus(cat.available_status) ===
+                      "not_available"
+                    }
+                    onChange={(available_status) =>
+                      updateItem(catIndex, itemIndex, { available_status })
+                    }
+                  />
                   <Button
                     type="button"
                     variant="ghost"

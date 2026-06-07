@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DynamicForm } from "@/components/form/dynamic-form";
 import {
   buildPlanFormConfig,
+  enrichPlanFormData,
   getEmptyPlanFormData,
   mapFormToPlanPayload,
 } from "@/lib/plan-form-config";
@@ -13,6 +14,8 @@ import { CreatePlan } from "@/services/api/plans.api";
 
 export default function CreatePlanPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const defaultProjectId = searchParams.get("project_id") ?? "";
   const [formOptions, setFormOptions] = useState<
     Awaited<ReturnType<typeof loadPlanFormOptions>>
   >({});
@@ -20,13 +23,27 @@ export default function CreatePlanPage() {
 
   useEffect(() => {
     loadPlanFormOptions()
-      .then(setFormOptions)
+      .then((options) =>
+        setFormOptions({
+          ...options,
+          defaultProjectId,
+        })
+      )
       .finally(() => setOptionsLoading(false));
-  }, []);
+  }, [defaultProjectId]);
+
+  const initialData = useMemo(
+    () =>
+      enrichPlanFormData(getEmptyPlanFormData(defaultProjectId), {
+        ...formOptions,
+        defaultProjectId,
+      }),
+    [defaultProjectId, formOptions]
+  );
 
   const config = useMemo(
-    () => buildPlanFormConfig("create", getEmptyPlanFormData(), formOptions),
-    [formOptions]
+    () => buildPlanFormConfig("create", initialData, formOptions),
+    [formOptions, initialData]
   );
 
   const handleSubmit = async (data: Record<string, unknown>) => {

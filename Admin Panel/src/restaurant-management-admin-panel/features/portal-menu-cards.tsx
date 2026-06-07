@@ -9,6 +9,11 @@ import {
   countMenuItems,
   parseMenuItems,
 } from "@/restaurant-management-admin-panel/lib/menu-items-utils";
+import {
+  isMenuItemAvailable,
+  normalizeAvailableStatus,
+  withCategoryAvailability,
+} from "@/restaurant-management-admin-panel/lib/menu-availability-utils";
 import { restaurantListQuery } from "@/restaurant-management-admin-panel/lib/restaurant-portal-scope";
 import { portalChildRecordEditPath } from "@/restaurant-management-admin-panel/lib/portal-routes";
 import {
@@ -63,9 +68,21 @@ function MenuItemImage({ src, alt }: { src?: string | null; alt: string }) {
   );
 }
 
-function ItemCard({ item }: { item: MenuItemRow }) {
+function ItemCard({
+  item,
+  category,
+}: {
+  item: MenuItemRow;
+  category: MenuCategoryRow;
+}) {
+  const available = isMenuItemAvailable(item, category);
   return (
-    <article className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+    <article
+      className={cn(
+        "overflow-hidden rounded-xl border bg-card shadow-sm",
+        available ? "border-border/80" : "border-destructive/30 opacity-75"
+      )}
+    >
       <MenuItemImage src={item.image} alt={item.name || "Menu item"} />
       <div className="space-y-1 p-3">
         <p className="line-clamp-2 text-sm font-semibold text-foreground">
@@ -74,23 +91,36 @@ function ItemCard({ item }: { item: MenuItemRow }) {
         <p className="text-sm font-medium text-primary tabular-nums">
           {formatINR(item.amount)}
         </p>
+        {!available ? (
+          <p className="text-[10px] font-bold uppercase tracking-wide text-destructive">
+            Not available
+          </p>
+        ) : null}
       </div>
     </article>
   );
 }
 
 function CategorySection({ category }: { category: MenuCategoryRow }) {
-  const items = category.items ?? [];
+  const resolved = withCategoryAvailability(category);
+  const items = resolved.items ?? [];
   if (!items.length) return null;
 
   return (
     <section className="space-y-3">
-      <h4 className="font-heading text-base font-semibold text-foreground">
-        {category.title || "Category"}
-      </h4>
+      <div className="flex items-center gap-2">
+        <h4 className="font-heading text-base font-semibold text-foreground">
+          {category.title || "Category"}
+        </h4>
+        {normalizeAvailableStatus(category.available_status) === "not_available" ? (
+          <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">
+            Category unavailable
+          </span>
+        ) : null}
+      </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {items.map((item) => (
-          <ItemCard key={item.id} item={item} />
+          <ItemCard key={item.id} item={item} category={category} />
         ))}
       </div>
     </section>

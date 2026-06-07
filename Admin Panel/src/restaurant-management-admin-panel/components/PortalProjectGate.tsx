@@ -1,6 +1,7 @@
 "use client";
 
 import { useEnsurePortalSession } from "@/restaurant-management-admin-panel/hooks/use-ensure-portal-session";
+import { RestaurantPortalPlanGate } from "@/restaurant-management-admin-panel/components/RestaurantPortalPlanGate";
 
 interface PortalProjectGateProps {
   projectId: number;
@@ -24,5 +25,9 @@ export function PortalProjectGate({ projectId, children }: PortalProjectGateProp
     );
   }
 
-  return <>{children}</>;
+  return (
+    <RestaurantPortalPlanGate projectId={projectId}>
+      {children}
+    </RestaurantPortalPlanGate>
+  );
 }

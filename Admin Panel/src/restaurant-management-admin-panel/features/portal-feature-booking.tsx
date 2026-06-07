@@ -59,6 +59,7 @@ export function PortalBookingForm({
   const [bookingDate, setBookingDate] = useState("");
   const [bookingTime, setBookingTime] = useState("");
   const [bookingStatus, setBookingStatus] = useState<string>("pending");
+  const [isManualBooking, setIsManualBooking] = useState(true);
   const [error, setError] = useState("");
   const readOnly = mode === "view";
 
@@ -125,6 +126,7 @@ export function PortalBookingForm({
         );
         setBookingTime(row.booking_time ?? "");
         setBookingStatus(row.booking_status ?? "pending");
+        setIsManualBooking(row.is_manual_booking === true);
         if (row.floor_id != null) {
           setFloorId(String(row.floor_id));
         }
@@ -323,6 +325,12 @@ export function PortalBookingForm({
           ))}
         </select>
       </div>
+      {readOnly ? (
+        <div className="rounded-md border border-input bg-muted/30 px-3 py-2 text-sm">
+          <span className="text-muted-foreground">Manual booking: </span>
+          <span className="font-medium">{isManualBooking ? "Yes" : "No"}</span>
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         {readOnly ? (
           <>

@@ -3,7 +3,10 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { RestaurantRingCallerHost } from "@/restaurant-management-admin-panel/components/RestaurantRingCallerHost";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/store";
+import { usePlanRenewalShell } from "@/store/plan-renewal-shell";
 import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 
@@ -14,6 +17,7 @@ export default function DashboardLayout({
 }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const { active: renewalShell } = usePlanRenewalShell();
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -35,12 +39,23 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset className="flex min-h-svh flex-col">
-        <TopBar />
-        <div className="flex-1 overflow-auto bg-[var(--page-canvas)] p-6">
+      {!renewalShell ? <AppSidebar /> : null}
+      <SidebarInset
+        className={cn(
+          "flex min-h-svh flex-col",
+          renewalShell && "w-full max-w-none"
+        )}
+      >
+        {!renewalShell ? <TopBar /> : null}
+        <div
+          className={cn(
+            "flex-1 overflow-auto",
+            renewalShell ? "p-0" : "bg-[var(--page-canvas)] p-6"
+          )}
+        >
           {children}
         </div>
+        {!renewalShell ? <RestaurantRingCallerHost /> : null}
       </SidebarInset>
     </SidebarProvider>
   );

@@ -7,6 +7,8 @@ export interface PlanMasterRow {
   plan_modules_id: number[];
   amount: number;
   discount_amount: number;
+  features?: string[];
+  range_type?: "monthly" | "annually" | string;
   project_id?: number | null;
   project_name?: string | null;
   created_at?: string;

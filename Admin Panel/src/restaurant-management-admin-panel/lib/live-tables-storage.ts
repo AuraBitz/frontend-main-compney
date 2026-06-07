@@ -40,6 +40,8 @@ export interface LiveCanvasTable {
   sizeH?: number;
   /** Per-table chair slots — deletable individually */
   chairSlots?: TableChairSlot[];
+  /** Admin-only: hidden from customer floor plan when true */
+  isDisabled?: boolean;
 }
 
 export interface LiveCanvasChair {
@@ -144,6 +146,10 @@ export function isTableLocked(table: LiveCanvasTable): boolean {
   return table.status === "busy" || table.status === "reserved";
 }
 
+export function isTableDisabled(table: LiveCanvasTable): boolean {
+  return table.isDisabled === true;
+}
+
 export function isMergedCanvasTable(table: LiveCanvasTable): boolean {
   return (table.mergeSegments ?? 1) > 1 || (table.mergedParts?.length ?? 0) > 0;
 }
@@ -172,7 +178,6 @@ export function suggestDuplicateTableNumber(
 const ACTIVE_BOOKING_STATUSES = new Set([
   "pending",
   "confirmed",
-  "completed",
   "reserved",
   "busy",
   "booked",
@@ -505,9 +510,11 @@ export function pickHigherTableStatus(
 
 export function mapBookingStatusToLive(status?: string | null): LiveTableStatus {
   const s = (status ?? "available").toLowerCase();
-  if (s === "cancelled") return "free";
-  if (s === "reserved" || s === "confirmed" || s === "pending") return "reserved";
-  if (s === "busy" || s === "occupied" || s === "booked" || s === "completed") {
+  if (s === "cancelled" || s === "completed" || s === "available" || s === "free") {
+    return "free";
+  }
+  if (s === "pending" || s === "reserved") return "reserved";
+  if (s === "confirmed" || s === "busy" || s === "occupied" || s === "booked") {
     return "busy";
   }
   return "free";

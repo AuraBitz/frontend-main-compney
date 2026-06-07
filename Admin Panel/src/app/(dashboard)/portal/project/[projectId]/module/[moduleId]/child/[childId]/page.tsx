@@ -4,7 +4,9 @@ import { useParams } from "next/navigation";
 import { PageShell } from "@/layout/PageShell";
 import { PortalProjectGate } from "@/restaurant-management-admin-panel/components/PortalProjectGate";
 import { PortalFeatureList } from "@/restaurant-management-admin-panel/features/portal-feature-list";
+import { PortalLiveTables } from "@/restaurant-management-admin-panel/features/portal-live-tables";
 import { usePortalChildModule } from "@/restaurant-management-admin-panel/hooks/use-portal-child-module";
+import { resolveEffectivePortalFeature } from "@/restaurant-management-admin-panel/lib/module-registry";
 
 function PortalChildContent() {
   const ctx = usePortalChildModule();
@@ -18,6 +20,16 @@ function PortalChildContent() {
         </p>
       </PageShell>
     );
+  }
+
+  const effectiveFeature = resolveEffectivePortalFeature(
+    ctx.childName,
+    ctx.feature,
+    ctx.session
+  );
+
+  if (effectiveFeature.featureKey === "restaurant_live_tables") {
+    return <PortalLiveTables ctx={ctx} />;
   }
 
   return (

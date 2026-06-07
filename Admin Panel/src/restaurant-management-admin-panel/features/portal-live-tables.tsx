@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Armchair,
+  Ban,
   Combine,
   Copy,
+  Eye,
   Info,
   Layers,
   Loader2,
   Lock,
-  MapPin,
   Maximize2,
   Pencil,
   Plus,
@@ -44,6 +45,7 @@ import {
   FLOOR_DESIGNS,
   isMasterLinkedTable,
   isMergedCanvasTable,
+  isTableDisabled,
   isTableLocked,
   suggestDuplicateTableNumber,
   loadLiveTablesState,
@@ -116,6 +118,14 @@ const STATUS_META: Record<
     glow: "shadow-[0_0_28px_rgba(56,189,248,0.55)] ring-2 ring-sky-300/70",
     chip: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
   },
+};
+
+const DISABLED_TABLE_META = {
+  label: "DISABLED",
+  dot: "bg-zinc-400 shadow-[0_0_8px_#a1a1aa]",
+  table: "from-zinc-500 via-zinc-600 to-zinc-800 border-zinc-300/30",
+  glow: "shadow-[0_8px_24px_rgba(113,113,122,0.35)] opacity-75",
+  chip: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300",
 };
 
 const TABLE_SIZE_MIN = 60;
@@ -500,7 +510,8 @@ function LiveTableNode({
   onInfoClick?: () => void;
 }) {
   const displayStatus = locked ? table.status : selected ? "selected" : table.status;
-  const meta = STATUS_META[displayStatus];
+  const disabled = isTableDisabled(table) && !locked;
+  const meta = disabled ? DISABLED_TABLE_META : STATUS_META[displayStatus];
   const baseDim = tableDimensions(table);
   const width = liveWidth ?? baseDim.width;
   const height = liveHeight ?? baseDim.height;
@@ -554,6 +565,7 @@ function LiveTableNode({
           "relative flex h-full w-full flex-col items-center justify-between overflow-hidden border bg-gradient-to-br px-2 py-2 text-white backdrop-blur-sm",
           meta.table,
           meta.glow,
+          disabled && "opacity-80 saturate-50",
           isMerged ? "rounded-3xl" : "rounded-2xl",
           locked && "opacity-95 saturate-110",
           !locked && "cursor-grab active:cursor-grabbing"
@@ -589,7 +601,11 @@ function LiveTableNode({
             <Info className="size-3 text-white/90" />
           </button>
         ) : null}
-        {locked ? (
+        {disabled ? (
+          <div className="absolute right-1.5 top-1.5 z-20 rounded-full bg-black/35 p-1">
+            <Ban className="size-3 text-white/90" />
+          </div>
+        ) : locked ? (
           <div className="absolute right-1.5 top-1.5 z-20 rounded-full bg-black/35 p-1">
             <Lock className="size-3 text-white/90" />
           </div>
@@ -684,28 +700,6 @@ function ChairNode({
   );
 }
 
-function StatPill({
-  label,
-  count,
-  className,
-}: {
-  label: string;
-  count: number;
-  className: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold",
-        className
-      )}
-    >
-      <span>{label}</span>
-      <span className="rounded-full bg-black/10 px-1.5 py-0.5 text-[10px]">{count}</span>
-    </div>
-  );
-}
-
 interface PortalLiveTablesProps {
   ctx: PortalChildContext;
 }
@@ -788,21 +782,29 @@ export function PortalLiveTables({ ctx }: PortalLiveTablesProps) {
   const floorDesign = activeFloor?.floorDesign ?? "wood";
   const designMeta = FLOOR_DESIGNS[floorDesign];
   const canvasSize = useMemo(
-    () => computeFloorCanvasSize(activeFloor, { selectedTableId }),
-    [activeFloor, selectedTableId]
+    () => computeFloorCanvasSize(activeFloor),
+    [activeFloor]
   );
   const renderScale = fitScale * (zoom / 100);
+
   renderScaleRef.current = renderScale;
-  const scaledCanvasHeight = Math.round(canvasSize.height * renderScale);
 
   useEffect(() => {
     const node = canvasViewportRef.current;
     if (!node) return;
 
+    let raf = 0;
     const updateFit = () => {
-      const cw = node.clientWidth;
-      if (cw <= 0) return;
-      setFitScale(cw / canvasSize.width);
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const cw = node.clientWidth;
+        const ch = node.clientHeight;
+        if (cw <= 0 || ch <= 0) return;
+        const fitW = cw / canvasSize.width;
+        const fitH = ch / canvasSize.height;
+        const next = Math.min(fitW, fitH);
+        setFitScale((prev) => (Math.abs(prev - next) < 0.001 ? prev : next));
+      });
     };
 
     updateFit();
@@ -811,6 +813,7 @@ export function PortalLiveTables({ ctx }: PortalLiveTablesProps) {
     window.addEventListener("resize", updateFit);
 
     return () => {
+      cancelAnimationFrame(raf);
       observer.disconnect();
       window.removeEventListener("resize", updateFit);
     };
@@ -843,17 +846,6 @@ export function PortalLiveTables({ ctx }: PortalLiveTablesProps) {
     setBookingDialogTable(table);
     setBookingDialogOpen(true);
   }, []);
-
-  const floorStats = useMemo(() => {
-    const tables = activeFloor?.tables ?? [];
-    return {
-      total: tables.length,
-      free: tables.filter((t) => t.status === "free").length,
-      booked: tables.filter((t) => t.status === "busy").length,
-      reserved: tables.filter((t) => t.status === "reserved").length,
-      merged: tables.filter((t) => (t.mergeSegments ?? 1) > 1).length,
-    };
-  }, [activeFloor]);
 
   useEffect(() => {
     floorsRef.current = floors;
@@ -1224,14 +1216,15 @@ export function PortalLiveTables({ ctx }: PortalLiveTablesProps) {
     setSelectedTableId(split[0]?.id ?? null);
   };
 
-  const masterTablesOnActiveFloor = useMemo(() => {
-    if (!activeFloor) return 0;
-    return masterTables.filter((t) =>
-      activeFloor.floorId == null
-        ? true
-        : Number(t.floor_id) === Number(activeFloor.floorId)
-    ).length;
-  }, [activeFloor, masterTables]);
+  const handleToggleTableDisabled = () => {
+    if (!selectedTable || selectedTableLocked || selectedTable.status !== "free") return;
+    updateActiveFloor((floor) => ({
+      ...floor,
+      tables: floor.tables.map((tb) =>
+        tb.id === selectedTable.id ? { ...tb, isDisabled: !tb.isDisabled } : tb
+      ),
+    }));
+  };
 
   const refreshTablesOnCanvas = useCallback(
     async (options?: {
@@ -1599,7 +1592,7 @@ export function PortalLiveTables({ ctx }: PortalLiveTablesProps) {
 
   if (loading) {
     return (
-      <div className="flex min-h-[480px] items-center justify-center rounded-2xl border bg-muted/30">
+      <div className="-m-6 flex h-[calc(100svh-3.5rem)] items-center justify-center bg-muted/30">
         <Loader2 className="size-7 animate-spin text-primary" />
       </div>
     );
@@ -1614,45 +1607,46 @@ export function PortalLiveTables({ ctx }: PortalLiveTablesProps) {
   }
 
   return (
-    <div className="flex max-h-[calc(100vh-7rem)] min-h-0 flex-col gap-3 overflow-x-hidden overflow-y-hidden">
-      <div className="flex shrink-0 flex-wrap items-start justify-between gap-4 rounded-2xl border bg-gradient-to-r from-card via-card to-muted/30 p-4 shadow-sm">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <MapPin className="size-4" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold tracking-tight">Live Tables</h2>
-              <p className="text-xs text-muted-foreground">
-                Table Master sync · Matrix auto-saves to live DB
-              </p>
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <StatPill
-              label="Tables"
-              count={masterTablesOnActiveFloor}
-              className="bg-muted"
-            />
-            <StatPill label="On canvas" count={floorStats.total} className="bg-muted/70" />
-            <StatPill label="Free" count={floorStats.free} className={STATUS_META.free.chip} />
-            <StatPill label="Booked" count={floorStats.booked} className={STATUS_META.busy.chip} />
-            <StatPill
-              label="Reserved"
-              count={floorStats.reserved}
-              className={STATUS_META.reserved.chip}
-            />
-            {floorStats.merged > 0 ? (
-              <StatPill
-                label="Merged"
-                count={floorStats.merged}
-                className="bg-violet-500/15 text-violet-700"
-              />
-            ) : null}
-          </div>
+    <div className="-m-6 flex h-[calc(100svh-3.5rem)] min-h-0 flex-col overflow-hidden bg-background">
+      {tableActionError ? (
+        <p className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">
+          {tableActionError}
+        </p>
+      ) : null}
+
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b bg-card px-3 py-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          {floors.map((floor) => (
+            <button
+              key={floor.id}
+              type="button"
+              onClick={() => switchFloor(floor.id)}
+              className={cn(
+                "flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm font-medium transition-all",
+                activeFloor?.id === floor.id
+                  ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                  : "border-border bg-background text-muted-foreground hover:border-primary/30"
+              )}
+            >
+              <Layers className="size-3.5 opacity-70" />
+              {floor.label}
+              <span
+                className={cn(
+                  "rounded-md px-1.5 py-0.5 text-[10px]",
+                  activeFloor?.id === floor.id ? "bg-white/20" : "bg-muted"
+                )}
+              >
+                {masterTables.filter((t) =>
+                  floor.floorId == null
+                    ? true
+                    : Number(t.floor_id) === Number(floor.floorId)
+                ).length}
+              </span>
+            </button>
+          ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <div className="flex items-center gap-1 rounded-xl border bg-background px-2 py-1">
             <Button
               type="button"
@@ -1683,49 +1677,9 @@ export function PortalLiveTables({ ctx }: PortalLiveTablesProps) {
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={handleSyncFromMaster}>
             <RotateCcw className="mr-1.5 size-3.5" />
-            Refresh from Master
+            Refresh
           </Button>
         </div>
-      </div>
-
-      {tableActionError ? (
-        <p className="shrink-0 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">
-          {tableActionError}
-        </p>
-      ) : null}
-
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        {floors.map((floor) => (
-          <button
-            key={floor.id}
-            type="button"
-            onClick={() => switchFloor(floor.id)}
-            className={cn(
-              "flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all",
-              activeFloor?.id === floor.id
-                ? "border-primary bg-primary text-primary-foreground shadow-md"
-                : "border-border bg-card text-muted-foreground hover:border-primary/30"
-            )}
-          >
-            <Layers className="size-3.5 opacity-70" />
-            {floor.label}
-            <span
-              className={cn(
-                "rounded-md px-1.5 py-0.5 text-[10px]",
-                activeFloor?.id === floor.id ? "bg-white/20" : "bg-muted"
-              )}
-            >
-              {masterTables.filter((t) =>
-                floor.floorId == null
-                  ? true
-                  : Number(t.floor_id) === Number(floor.floorId)
-              ).length}
-            </span>
-          </button>
-        ))}
-        <span className="text-[10px] text-muted-foreground">
-          Floors from Floor Master
-        </span>
       </div>
 
       {mergeSourceId ? (
@@ -1757,7 +1711,7 @@ export function PortalLiveTables({ ctx }: PortalLiveTablesProps) {
         </div>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border shadow-lg">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {selectedTable && !selectedChairId && !selectedTableChairId ? (
             <div className="absolute left-4 top-4 z-20 flex flex-wrap items-center gap-1.5 rounded-xl border border-white/10 bg-black/55 p-1.5 backdrop-blur-md">
@@ -1803,6 +1757,30 @@ export function PortalLiveTables({ ctx }: PortalLiveTablesProps) {
               ) : null}
               {!selectedTableLocked ? (
                 <>
+                  {selectedTable.status === "free" ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className={cn(
+                        "h-7 gap-1 text-white hover:bg-white/10",
+                        selectedTable.isDisabled && "text-amber-200"
+                      )}
+                      onClick={handleToggleTableDisabled}
+                    >
+                      {selectedTable.isDisabled ? (
+                        <>
+                          <Eye className="size-3.5" />
+                          Enable
+                        </>
+                      ) : (
+                        <>
+                          <Ban className="size-3.5" />
+                          Disable
+                        </>
+                      )}
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     size="sm"
@@ -1884,17 +1862,16 @@ export function PortalLiveTables({ ctx }: PortalLiveTablesProps) {
             </div>
           ) : null}
 
-          <div
-            ref={canvasViewportRef}
-            className={cn(
-              "relative min-h-0 flex-1 overflow-y-auto",
-              zoom > 100 ? "overflow-x-auto" : "overflow-x-hidden"
-            )}
-          >
+          <div ref={canvasViewportRef} className="relative min-h-0 flex-1 overflow-hidden">
             <div
               ref={canvasRef}
-              className="w-full overflow-hidden"
-              style={{ height: scaledCanvasHeight }}
+              className="absolute left-0 top-0 origin-top-left will-change-transform"
+              style={{
+                width: canvasSize.width,
+                height: canvasSize.height,
+                transform: `scale(${renderScale})`,
+                background: designMeta.background,
+              }}
               onPointerDown={() => {
                 if (!mergeSourceId) {
                   setSelectedTableId(null);
@@ -1903,15 +1880,6 @@ export function PortalLiveTables({ ctx }: PortalLiveTablesProps) {
                 }
               }}
             >
-              <div
-                className="relative origin-top-left"
-                style={{
-                  width: canvasSize.width,
-                  height: canvasSize.height,
-                  transform: `scale(${renderScale})`,
-                  background: designMeta.background,
-                }}
-              >
               <div
                 className="pointer-events-none absolute inset-0"
                 style={{
@@ -2001,7 +1969,6 @@ export function PortalLiveTables({ ctx }: PortalLiveTablesProps) {
                   </div>
                 </div>
               ) : null}
-              </div>
             </div>
           </div>
         </div>
@@ -2143,7 +2110,7 @@ export function PortalLiveTables({ ctx }: PortalLiveTablesProps) {
                       onClick={() => openDeleteTableDialog(selectedTable)}
                     >
                       <Trash2 className="size-3.5" />
-                      Remove merged table from layout
+                      Remove merge
                     </Button>
                   ) : null}
                   {selectedTableLocked ? (

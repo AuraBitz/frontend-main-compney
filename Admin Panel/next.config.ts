@@ -28,8 +28,10 @@ const backendApiPrefixes = [
   "restaurant-booking-master",
   "restaurant-transaction-master",
   "restaurant-order-management",
+  "restaurant-order-master",
   "restaurant-payment-master",
   "restaurant-live-table-matrix-master",
+  "restaurant-call-waiter",
   "health",
 ] as const;
 

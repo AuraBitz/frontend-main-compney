@@ -33,7 +33,7 @@ export function TableRowActionsCell<T extends object>(
 
   return (
     <div
-      className="flex h-full items-center justify-center gap-1.5"
+      className="flex h-full min-h-10 w-full flex-wrap items-center justify-center gap-1 px-1 py-1.5"
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
@@ -45,12 +45,13 @@ export function TableRowActionsCell<T extends object>(
             type="button"
             size="xs"
             variant={action.variant ?? "outline"}
-            className="h-7 gap-1 px-2"
+            className="h-7 shrink-0 gap-1 px-2.5"
             title={action.label}
+            aria-label={action.label}
             onClick={() => action.onClick(row)}
           >
             {Icon && <Icon className="size-3.5 shrink-0" />}
-            <span className="hidden sm:inline">{action.label}</span>
+            <span className="whitespace-nowrap text-[11px]">{action.label}</span>
           </Button>
         );
       })}
@@ -128,7 +129,7 @@ export function buildActionsColumnDef<T extends object>(
   options?: { headerName?: string; minWidth?: number }
 ): ColDef<T> {
   const count = Math.max(actions.length, 1);
-  const minWidth = options?.minWidth ?? Math.min(56 + count * 72, 220);
+  const minWidth = options?.minWidth ?? Math.min(72 + count * 78, 320);
 
   return {
     headerName: options?.headerName ?? "Actions",
@@ -139,15 +140,14 @@ export function buildActionsColumnDef<T extends object>(
     sortable: false,
     filter: false,
     floatingFilter: false,
-    resizable: false,
+    resizable: true,
     suppressMovable: true,
     suppressSizeToFit: true,
     suppressAutoSize: true,
     flex: 0,
     minWidth,
-    maxWidth: minWidth,
     width: minWidth,
-    cellClass: cn("ag-cell-actions", "!flex items-center justify-center"),
+    cellClass: cn("ag-cell-actions", "!overflow-visible"),
     cellRenderer: TableRowActionsCell,
     cellRendererParams: { actions },
   };

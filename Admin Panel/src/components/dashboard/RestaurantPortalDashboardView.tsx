@@ -3,47 +3,127 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ArrowUpRight,
   Calendar,
+  CalendarCheck2,
   CreditCard,
-  Layers,
-  Mail,
-  MapPin,
-  Phone,
+  LayoutGrid,
+  Sparkles,
   Store,
   User,
+  Users,
+  UtensilsCrossed,
 } from "lucide-react";
+import {
+  RestaurantBarChart,
+  RestaurantOccupancyRing,
+  RestaurantStatusBreakdown,
+} from "@/components/dashboard/RestaurantDashboardCharts";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { formatINR } from "@/lib/format-currency";
+import {
+  bookingTrendRange,
+  groupByDay,
+  groupByMonth,
+  groupByYear,
+  type BookingTrendGranularity,
+} from "@/lib/dashboard-utils";
 import { buildFilterClause } from "@/lib/filter-builder-v2";
 import {
   listQueryForProject,
   listQueryForRestaurant,
 } from "@/lib/list-query";
 import { isClientLoginUser } from "@/lib/project-access";
+import { useRestaurantDashboardStats } from "@/restaurant-management-admin-panel/hooks/use-restaurant-dashboard-stats";
 import {
-  portalChildPath,
-  portalModulePath,
-} from "@/restaurant-management-admin-panel/lib/portal-routes";
+  findPortalChildrenByFeatures,
+  RESTAURANT_PRIORITY_FEATURES,
+} from "@/restaurant-management-admin-panel/lib/restaurant-dashboard-utils";
+import {
+  getChildModuleIcon,
+  PortalNavIcon,
+} from "@/restaurant-management-admin-panel/lib/portal-module-icons";
+import { portalProfilePath } from "@/restaurant-management-admin-panel/lib/portal-routes";
 import { GetAllClientManagementList } from "@/services/api/client-management.api";
 import { useAuth } from "@/store";
 import { useProjectPortal } from "@/store/project-portal";
 import type { ClientManagementRow } from "@/types/client-management.types";
+import { cn } from "@/lib/utils";
 
-import { formatDateDDMMYYYY } from "@/utils/format-date";
-
-function formatDate(value: string | null | undefined) {
-  if (!value) return "—";
-  return formatDateDDMMYYYY(value) || "—";
-}
+const PRIORITY_META: Record<
+  string,
+  { description: string; accent: string }
+> = {
+  restaurant_live_tables: {
+    description: "Real-time floor plan & table control",
+    accent: "from-orange-500/15 to-amber-500/5 border-orange-500/20",
+  },
+  restaurant_booking_master: {
+    description: "Bookings, QR codes & guest sessions",
+    accent: "from-violet-500/15 to-indigo-500/5 border-violet-500/20",
+  },
+  restaurant_order_master: {
+    description: "Dine-in orders & auto order numbers",
+    accent: "from-cyan-500/15 to-sky-500/5 border-cyan-500/20",
+  },
+  menu_master: {
+    description: "Thalis, categories & item availability",
+    accent: "from-emerald-500/15 to-teal-500/5 border-emerald-500/20",
+  },
+  restaurant_customer_management: {
+    description: "Guest profiles & dining history",
+    accent: "from-sky-500/15 to-blue-500/5 border-sky-500/20",
+  },
+  restaurant_table_master: {
+    description: "Tables, chairs & floor mapping",
+    accent: "from-rose-500/15 to-pink-500/5 border-rose-500/20",
+  },
+  restaurant_payment_master: {
+    description: "Payments & settlement tracking",
+    accent: "from-amber-500/15 to-yellow-500/5 border-amber-500/20",
+  },
+};
 
 export function RestaurantPortalDashboardView() {
   const router = useRouter();
   const { user } = useAuth();
   const { session } = useProjectPortal();
   const [client, setClient] = useState<ClientManagementRow | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [clientLoading, setClientLoading] = useState(true);
   const [error, setError] = useState("");
+  const [bookingTrendGranularity, setBookingTrendGranularity] =
+    useState<BookingTrendGranularity>("day");
+  const ops = useRestaurantDashboardStats(session, user);
+
+  const bookingTrendMeta = useMemo(
+    () => bookingTrendRange(bookingTrendGranularity),
+    [bookingTrendGranularity]
+  );
+
+  const bookingTrend = useMemo(() => {
+    const getDate = (booking: (typeof ops.bookings)[number]) =>
+      booking.booking_date
+        ? String(booking.booking_date).slice(0, 10)
+        : booking.created_at ?? null;
+
+    const { start, end } = bookingTrendMeta;
+
+    if (bookingTrendGranularity === "month") {
+      return groupByMonth(ops.bookings, getDate, start, end);
+    }
+    if (bookingTrendGranularity === "year") {
+      return groupByYear(ops.bookings, getDate, start, end);
+    }
+    return groupByDay(ops.bookings, getDate, start, end);
+  }, [ops.bookings, bookingTrendGranularity, bookingTrendMeta]);
+
+  const bookingTrendEmptyLabel =
+    bookingTrendGranularity === "year"
+      ? "No bookings in the last 5 years"
+      : bookingTrendGranularity === "month"
+        ? "No bookings in the last 12 months"
+        : "No bookings in the last week";
 
   const restaurantName =
     session?.restaurantName?.trim() ||
@@ -55,7 +135,7 @@ export function RestaurantPortalDashboardView() {
   const loadRestaurantClient = useCallback(async () => {
     if (!session?.projectId) return;
 
-    setLoading(true);
+    setClientLoading(true);
     setError("");
 
     try {
@@ -87,7 +167,7 @@ export function RestaurantPortalDashboardView() {
       );
       setClient(null);
     } finally {
-      setLoading(false);
+      setClientLoading(false);
     }
   }, [session?.projectId, session?.restaurantId, user]);
 
@@ -95,13 +175,10 @@ export function RestaurantPortalDashboardView() {
     loadRestaurantClient();
   }, [loadRestaurantClient]);
 
-  const moduleCount = useMemo(() => {
-    if (!session?.modules?.length) return 0;
-    return (
-      session.modules.length +
-      session.modules.reduce((n, m) => n + (m.children?.length ?? 0), 0)
-    );
-  }, [session?.modules]);
+  const priorityModules = useMemo(
+    () => (session ? findPortalChildrenByFeatures(session, RESTAURANT_PRIORITY_FEATURES) : []),
+    [session]
+  );
 
   if (!session) {
     return (
@@ -115,190 +192,229 @@ export function RestaurantPortalDashboardView() {
   const planType = client?.plan_type ?? "—";
   const planDays =
     client?.plan_remain_days != null ? `${client.plan_remain_days} days` : "—";
+  const loading = clientLoading || ops.loading;
 
   return (
-    <div className="dashboard-page dashboard-page--restaurant space-y-6">
+    <div className="dashboard-page dashboard-page--restaurant space-y-8">
       <DashboardHero
-        title={`${restaurantName} dashboard`}
-        subtitle={`Welcome, ${ownerName}. Manage your restaurant using the modules below.`}
-        badge="Restaurant portal"
-        className="dashboard-hero--portal"
+        title={`Welcome back, ${ownerName}`}
+        subtitle={`${restaurantName} at a glance — bookings, tables, menu and live floor status.`}
+        badge="Restaurant command center"
+        className="dashboard-hero--portal border border-orange-500/15 bg-gradient-to-br from-orange-500/10 via-background to-amber-500/5"
+        actions={
+          <button
+            type="button"
+            onClick={() => router.push(portalProfilePath(session.projectId))}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-primary/20 bg-background/80 px-4 py-2.5 text-sm font-medium shadow-sm transition hover:border-primary/40 hover:bg-primary/5"
+          >
+            <User className="size-4 text-primary" />
+            View profile
+            <ArrowUpRight className="size-4 text-muted-foreground" />
+          </button>
+        }
       />
 
-      {error && (
+      {error ? (
         <p className="text-sm text-destructive" role="alert">
           {error}
         </p>
-      )}
+      ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Plan type"
-          value={planType}
-          hint="Your active subscription plan"
-          icon={CreditCard}
-          accent="violet"
-          loading={loading}
-        />
-        <StatCard
-          label="Plan remaining"
-          value={planDays}
-          hint={`Status: ${planStatus}`}
-          icon={Calendar}
-          accent="emerald"
-          loading={loading}
-        />
-        <StatCard
-          label="Plan amount"
-          value={loading ? "—" : formatINR(client?.plan_amount)}
-          hint="Amount for your current plan"
-          icon={Store}
-          accent="primary"
-          loading={loading}
-        />
-        <StatCard
-          label="Your modules"
-          value={moduleCount}
-          hint="Modules available on your plan"
-          icon={Layers}
-          accent="amber"
-          loading={loading}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="size-4 text-orange-500" />
+          <h2 className="font-heading text-lg font-semibold">Live restaurant status</h2>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Today's bookings"
+            value={ops.todayBookings}
+            hint="Bookings scheduled for today"
+            icon={CalendarCheck2}
+            accent="primary"
+            loading={loading}
+          />
+          <StatCard
+            label="Active bookings"
+            value={ops.activeBookings}
+            hint="Pending + confirmed right now"
+            icon={Calendar}
+            accent="amber"
+            loading={loading}
+          />
+          <StatCard
+            label="Tables occupied"
+            value={`${ops.tableStats.reserved + ops.tableStats.booked}/${ops.tableStats.total}`}
+            hint={`${ops.tableStats.available} available now`}
+            icon={LayoutGrid}
+            accent="emerald"
+            loading={loading}
+          />
+          <StatCard
+            label="Total customers"
+            value={ops.customerTotal}
+            hint={`${ops.manualBookings} manual booking QR ready`}
+            icon={Users}
+            accent="violet"
+            loading={loading}
+          />
+        </div>
+      </section>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <RestaurantBarChart
+            data={bookingTrend}
+            loading={ops.loading}
+            title="Bookings trend"
+            description={bookingTrendMeta.description}
+            emptyLabel={bookingTrendEmptyLabel}
+            granularity={bookingTrendGranularity}
+            onGranularityChange={setBookingTrendGranularity}
+          />
+        </div>
+        <RestaurantOccupancyRing
+          available={ops.tableStats.available}
+          reserved={ops.tableStats.reserved}
+          booked={ops.tableStats.booked}
+          total={ops.tableStats.total}
+          loading={ops.loading}
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm ring-1 ring-border/40 lg:col-span-2">
-          <h3 className="font-heading text-sm font-semibold text-foreground">
-            Restaurant details
-          </h3>
-          <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div className="flex gap-3">
-              <User className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              <div>
-                <dt className="text-xs text-muted-foreground">Owner</dt>
-                <dd className="text-sm font-medium">{ownerName}</dd>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <Phone className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              <div>
-                <dt className="text-xs text-muted-foreground">Mobile</dt>
-                <dd className="text-sm font-medium">{client?.mobile || "—"}</dd>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <Mail className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              <div>
-                <dt className="text-xs text-muted-foreground">Email</dt>
-                <dd className="text-sm font-medium">{client?.email || "—"}</dd>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <Calendar className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              <div>
-                <dt className="text-xs text-muted-foreground">Joined at</dt>
-                <dd className="text-sm font-medium">
-                  {formatDate(client?.created_at)}
-                </dd>
-              </div>
-            </div>
-            <div className="flex gap-3 sm:col-span-2">
-              <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              <div>
-                <dt className="text-xs text-muted-foreground">Address</dt>
-                <dd className="text-sm font-medium">
-                  {[client?.address, client?.city, client?.state, client?.country]
-                    .filter(Boolean)
-                    .join(", ") || "—"}
-                </dd>
-              </div>
-            </div>
-          </dl>
-        </div>
-
-        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm ring-1 ring-border/40">
-          <h3 className="font-heading text-sm font-semibold text-foreground">
-            Plan summary
-          </h3>
-          <ul className="mt-4 space-y-3 text-sm">
-            <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Plan type</span>
-              <span className="font-medium">{planType}</span>
-            </li>
-            <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Remaining days</span>
-              <span className="font-medium">{planDays}</span>
-            </li>
-            <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Status</span>
-              <span className="font-medium">{planStatus}</span>
-            </li>
-            <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Plan started</span>
-              <span className="font-medium">
-                {formatDate(client?.plan_start_at)}
-              </span>
-            </li>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <RestaurantStatusBreakdown
+          items={ops.bookingStatus}
+          loading={ops.loading}
+          title="Booking pipeline"
+          description="Current booking status distribution"
+        />
+        <div className="rounded-2xl border border-border/80 bg-gradient-to-br from-violet-500/10 via-card to-card p-5 shadow-sm">
+          <h3 className="font-heading text-base font-semibold">Plan & subscription</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your restaurant plan at a glance
+          </p>
+          <ul className="mt-5 space-y-3">
+            <PlanRow label="Plan type" value={planType} loading={clientLoading} />
+            <PlanRow label="Remaining days" value={planDays} loading={clientLoading} />
+            <PlanRow label="Status" value={planStatus} loading={clientLoading} />
+            <PlanRow
+              label="Plan amount"
+              value={clientLoading ? "…" : formatINR(client?.plan_amount)}
+              loading={clientLoading}
+            />
           </ul>
         </div>
       </div>
 
-      {session.modules.length > 0 ? (
-        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm ring-1 ring-border/40">
-          <h3 className="font-heading text-sm font-semibold text-foreground">
-            Your modules
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Open a module to manage {restaurantName}.
-          </p>
-          <div className="mt-3 space-y-3">
-            {session.modules.map((mod) => (
-              <div key={mod.id}>
+      {priorityModules.length > 0 ? (
+        <section className="space-y-4">
+          <div>
+            <h3 className="font-heading text-lg font-semibold">Important modules</h3>
+            <p className="text-sm text-muted-foreground">
+              Jump straight into the tools you use every day
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {priorityModules.map((mod) => {
+              const Icon = getChildModuleIcon(mod.name);
+              const meta = PRIORITY_META[mod.featureKey] ?? {
+                description: "Open module",
+                accent: "from-primary/10 to-primary/5 border-primary/20",
+              };
+              return (
                 <button
+                  key={mod.featureKey}
                   type="button"
-                  onClick={() => {
-                    const href = portalModulePath(session.projectId, mod.id);
-                    if (href) router.push(href);
-                  }}
-                  className="dashboard-quick-link inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+                  onClick={() => router.push(mod.href)}
+                  className={cn(
+                    "group cursor-pointer rounded-2xl border bg-gradient-to-br p-5 text-left shadow-sm transition",
+                    "hover:-translate-y-0.5 hover:shadow-md",
+                    meta.accent
+                  )}
                 >
-                  <Layers className="size-4" />
-                  {mod.name}
-                </button>
-                {(mod.children ?? []).length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2 pl-4">
-                    {(mod.children ?? []).map((child) => (
-                      <button
-                        key={child.id}
-                        type="button"
-                        onClick={() =>
-                          router.push(
-                            portalChildPath(
-                              session.projectId,
-                              mod.id,
-                              child.id
-                            )
-                          )
-                        }
-                        className="dashboard-quick-link inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border/70 bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
-                      >
-                        {child.name}
-                      </button>
-                    ))}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex size-12 items-center justify-center rounded-xl bg-background/80 shadow-sm">
+                      <PortalNavIcon icon={Icon} className="size-5 text-primary" />
+                    </div>
+                    <ArrowUpRight className="size-4 text-muted-foreground transition group-hover:text-primary" />
                   </div>
-                )}
-              </div>
-            ))}
+                  <p className="mt-4 font-semibold text-foreground">{mod.name}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {meta.description}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-heading text-base font-semibold">Restaurant snapshot</h3>
+            <p className="text-sm text-muted-foreground">
+              Owner & location details for {restaurantName}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <SnapshotPill icon={Store} label={restaurantName} />
+            <SnapshotPill icon={UtensilsCrossed} label={`${ops.tableStats.total} tables`} />
+            <SnapshotPill icon={CreditCard} label={planType} />
           </div>
         </div>
-      ) : (
-        <div className="rounded-2xl border border-dashed border-border/80 bg-muted/20 p-8 text-center">
-          <p className="text-sm font-medium text-foreground">No modules yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Modules will appear here when a plan is assigned to this restaurant.
-          </p>
-        </div>
-      )}
+        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <MiniStat label="Owner" value={ownerName} />
+          <MiniStat label="Mobile" value={client?.mobile} />
+          <MiniStat label="Email" value={client?.email} />
+          <MiniStat
+            label="Location"
+            value={[client?.city, client?.state].filter(Boolean).join(", ")}
+          />
+        </dl>
+      </section>
+    </div>
+  );
+}
+
+function PlanRow({
+  label,
+  value,
+  loading,
+}: {
+  label: string;
+  value: string;
+  loading?: boolean;
+}) {
+  return (
+    <li className="flex items-center justify-between gap-3 rounded-lg bg-background/70 px-3 py-2 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-semibold capitalize">{loading ? "…" : value}</span>
+    </li>
+  );
+}
+
+function SnapshotPill({
+  icon: Icon,
+  label,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-3 py-1 text-xs font-medium">
+      <Icon className="size-3.5 text-primary" />
+      {label}
+    </span>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="rounded-xl bg-muted/30 px-3 py-2.5">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 text-sm font-medium">{value?.trim() || "—"}</dd>
     </div>
   );
 }

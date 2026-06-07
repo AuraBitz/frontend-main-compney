@@ -25,6 +25,7 @@ import {
 } from "@/restaurant-management-admin-panel/lib/module-registry";
 import { PortalMenuForm } from "@/restaurant-management-admin-panel/features/portal-feature-menu";
 import { PortalBookingForm } from "@/restaurant-management-admin-panel/features/portal-feature-booking";
+import { PortalOrderForm } from "@/restaurant-management-admin-panel/features/portal-feature-order";
 import {
   PortalFloorForm,
   PortalTableForm,
@@ -121,6 +122,7 @@ export function PortalFeatureCreate({ ctx }: PortalFeatureCreateProps) {
     case "restaurant_floor_master":
     case "restaurant_table_master":
     case "restaurant_booking_master":
+    case "restaurant_order_master":
     case "restaurant_transaction_master":
     case "restaurant_payment_master":
       if (!restaurantId) {
@@ -153,6 +155,16 @@ export function PortalFeatureCreate({ ctx }: PortalFeatureCreateProps) {
       if (featureKey === "restaurant_booking_master") {
         return (
           <PortalBookingForm
+            mode="create"
+            restaurantId={restaurantId}
+            onDone={goBack}
+            onCancel={goBack}
+          />
+        );
+      }
+      if (featureKey === "restaurant_order_master") {
+        return (
+          <PortalOrderForm
             mode="create"
             restaurantId={restaurantId}
             onDone={goBack}

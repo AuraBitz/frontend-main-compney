@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ColDef, ValueFormatterParams } from "ag-grid-community";
-import { Plus } from "lucide-react";
+import { Plus, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DynamicTable,
@@ -20,6 +20,7 @@ import {
   type PortalFeatureKey,
 } from "@/restaurant-management-admin-panel/lib/module-registry";
 import { RestaurantMenuCards } from "@/restaurant-management-admin-panel/features/portal-menu-cards";
+import { BookingQrDialog } from "@/restaurant-management-admin-panel/components/ManualBookingQrDialog";
 import { PortalLiveTables } from "@/restaurant-management-admin-panel/features/portal-live-tables";
 import {
   listQueryForPlanIds,
@@ -32,18 +33,21 @@ import { GetAllRestaurantCustomersList } from "@/services/api/restaurant-custome
 import { GetAllRestaurantFloorsList } from "@/services/api/restaurant-floor-master.api";
 import { GetAllRestaurantTablesList } from "@/services/api/restaurant-table-master.api";
 import { GetAllRestaurantBookingsList } from "@/services/api/restaurant-booking-master.api";
+import { GetAllRestaurantOrderMasterList } from "@/services/api/restaurant-order-master.api";
 import { GetAllRestaurantTransactionsList } from "@/services/api/restaurant-transaction-master.api";
 import { GetAllRestaurantPaymentsList } from "@/services/api/restaurant-payment-master.api";
 import type {
   RestaurantBookingRow,
   RestaurantCustomerRow,
   RestaurantFloorRow,
+  RestaurantOrderMasterRow,
   RestaurantPaymentRow,
   RestaurantTableRow,
   RestaurantTransactionRow,
 } from "@/types/restaurant-ops.types";
 import { withStatusSetFilter } from "@/lib/table-column-utils";
 import { formatDateDDMMYYYY, formatTimeString12 } from "@/utils/format-date";
+import { formatOrderStatus } from "@/restaurant-management-admin-panel/features/portal-feature-order";
 import type { ParentModuleRow } from "@/lib/parent-module-form-config";
 import {
   DeleteParentModule,
@@ -218,6 +222,8 @@ function PortalFeatureTable({
       return <RestaurantTableTable ctx={ctx} />;
     case "restaurant_booking_master":
       return <RestaurantBookingTable ctx={ctx} />;
+    case "restaurant_order_master":
+      return <RestaurantOrderMasterTable ctx={ctx} />;
     case "restaurant_transaction_master":
       return <RestaurantTransactionTable ctx={ctx} />;
     case "restaurant_payment_master":
@@ -596,12 +602,6 @@ function RestaurantCustomerTable({ ctx }: { ctx: PortalChildContext }) {
           p.value ? String(p.value).replace(/_/g, " ") : "—",
       },
       {
-        field: "is_manual_booking",
-        headerName: "Manual Booking",
-        minWidth: 130,
-        valueFormatter: (p) => (p.value === true ? "Yes" : "No"),
-      },
-      {
         field: "address",
         headerName: "Address",
         minWidth: 180,
@@ -867,6 +867,7 @@ function RestaurantPaymentTable({ ctx }: { ctx: PortalChildContext }) {
 function RestaurantBookingTable({ ctx }: { ctx: PortalChildContext }) {
   const router = useRouter();
   const query = useRestaurantScopeQuery(ctx);
+  const [qrBooking, setQrBooking] = useState<RestaurantBookingRow | null>(null);
 
   const fetchRows = useCallback(
     async (gridQuery: ListQueryPayload) => {
@@ -924,17 +925,136 @@ function RestaurantBookingTable({ ctx }: { ctx: PortalChildContext }) {
         valueFormatter: (p) =>
           p.value ? String(p.value).replace(/_/g, " ") : "—",
       },
+      {
+        field: "is_manual_booking",
+        headerName: "Manual Booking",
+        minWidth: 130,
+        valueFormatter: (p) => (p.value === true ? "Yes" : "No"),
+      },
     ],
     []
   );
 
   return (
-    <DynamicTable<RestaurantBookingRow>
+    <>
+      <DynamicTable<RestaurantBookingRow>
+        rowData={[]}
+        columnDefs={columnDefs}
+        onServerFilter={fetchRows}
+        dateFields={["booking_date"]}
+        emptyMessage="No bookings found"
+        height="520px"
+        rowActions={[
+          viewRowAction((row) => {
+            const href = portalRecordViewHref(ctx, row.id);
+            if (href) router.push(href);
+          }),
+          editRowAction((row) => {
+            const href = portalRecordEditHref(ctx, row.id);
+            if (href) router.push(href);
+          }),
+          {
+            id: "qr",
+            label: "QR",
+            icon: QrCode,
+            variant: "outline",
+            hidden: (row) =>
+              !row.is_manual_booking ||
+              !row.table_id ||
+              !row.customer_id ||
+              row.booking_status === "cancelled",
+            onClick: (row) => setQrBooking(row),
+          },
+        ]}
+      />
+      <BookingQrDialog
+        open={!!qrBooking}
+        onOpenChange={(open) => {
+          if (!open) setQrBooking(null);
+        }}
+        booking={qrBooking}
+      />
+    </>
+  );
+}
+
+function RestaurantOrderMasterTable({ ctx }: { ctx: PortalChildContext }) {
+  const router = useRouter();
+  const query = useRestaurantScopeQuery(ctx);
+
+  const fetchRows = useCallback(
+    async (gridQuery: ListQueryPayload) => {
+      return GetAllRestaurantOrderMasterList(
+        mergeScopedListQuery(query, gridQuery)
+      );
+    },
+    [query]
+  );
+
+  const columnDefs = useMemo<ColDef<RestaurantOrderMasterRow>[]>(
+    () => [
+      {
+        field: "order_number",
+        headerName: "Order #",
+        minWidth: 90,
+        valueFormatter: (p) =>
+          p.value != null ? `#${p.value}` : "—",
+      },
+      {
+        field: "customer_name",
+        headerName: "Customer",
+        minWidth: 150,
+        flex: 1,
+        valueFormatter: (p) => p.value || "—",
+      },
+      {
+        field: "floor_no",
+        headerName: "Floor",
+        minWidth: 90,
+        valueFormatter: (p) =>
+          p.value != null ? `Floor ${p.value}` : "—",
+      },
+      {
+        field: "table_number",
+        headerName: "Table",
+        minWidth: 90,
+        valueFormatter: (p) => p.value || "—",
+      },
+      {
+        field: "order_items_id",
+        headerName: "Items",
+        minWidth: 90,
+        valueFormatter: (p) => {
+          const items = p.value as number[] | undefined;
+          if (!items?.length) return "0";
+          return `${items.length} item${items.length === 1 ? "" : "s"}`;
+        },
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        minWidth: 120,
+        valueFormatter: (p) =>
+          p.value ? formatOrderStatus(String(p.value)) : "—",
+      },
+      {
+        field: "created_at",
+        headerName: "Created",
+        minWidth: 120,
+        valueFormatter: (p) =>
+          p.value ? formatDateDDMMYYYY(String(p.value)) || "—" : "—",
+      },
+    ],
+    []
+  );
+
+  return (
+    <DynamicTable<RestaurantOrderMasterRow>
       rowData={[]}
       columnDefs={columnDefs}
       onServerFilter={fetchRows}
-      dateFields={["booking_date"]}
-      emptyMessage="No bookings found"
+      dateFields={["created_at"]}
+      emptyMessage="No orders found"
       height="520px"
       rowActions={[
         viewRowAction((row) => {

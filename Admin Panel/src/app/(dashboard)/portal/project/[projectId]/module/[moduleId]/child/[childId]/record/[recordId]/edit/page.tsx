@@ -6,6 +6,7 @@ import { PortalProjectGate } from "@/restaurant-management-admin-panel/component
 import { PortalFeatureRecord } from "@/restaurant-management-admin-panel/features/portal-feature-record";
 import { PortalMenuForm } from "@/restaurant-management-admin-panel/features/portal-feature-menu";
 import { PortalBookingForm } from "@/restaurant-management-admin-panel/features/portal-feature-booking";
+import { PortalOrderForm } from "@/restaurant-management-admin-panel/features/portal-feature-order";
 import {
   PortalPaymentForm,
   PortalTransactionForm,
@@ -104,6 +105,19 @@ function PortalRecordEditContent() {
       return (
         <PageShell title="Edit Booking" description={effectiveFeature.description}>
           <PortalBookingForm
+            mode="edit"
+            restaurantId={restaurantId}
+            recordId={recordId}
+            onCancel={() => router.push(listPath)}
+            onDone={() => router.push(listPath)}
+          />
+        </PageShell>
+      );
+    }
+    if (effectiveFeature.featureKey === "restaurant_order_master") {
+      return (
+        <PageShell title="Edit Order" description={effectiveFeature.description}>
+          <PortalOrderForm
             mode="edit"
             restaurantId={restaurantId}
             recordId={recordId}

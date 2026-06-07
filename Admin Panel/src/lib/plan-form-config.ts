@@ -14,6 +14,7 @@ export interface ProjectListRow {
 export interface PlanFormOptions {
   projectOptions?: DynamicSelectOption[];
   moduleOptions?: DynamicSelectOption[];
+  defaultProjectId?: string;
 }
 
 export function findProjectIdForPlan(
@@ -31,14 +32,18 @@ export function findProjectIdForPlan(
   return found ? String(found.id) : "";
 }
 
-export function getEmptyPlanFormData(): Record<string, unknown> {
+export function getEmptyPlanFormData(
+  defaultProjectId = ""
+): Record<string, unknown> {
   return {
-    project_id: "",
+    project_id: defaultProjectId,
+    range_type: "monthly",
     plan_type: "",
     amount: "",
     plan_valid_days: "",
     plan_modules_id: [] as string[],
     discount_amount: "",
+    features: [""],
   };
 }
 
@@ -50,10 +55,14 @@ export function mapPlanToFormData(
   const moduleIds = Array.isArray(row.plan_modules_id)
     ? row.plan_modules_id.map(String)
     : [];
+  const features = Array.isArray(row.features)
+    ? row.features.map(String)
+    : [];
   return {
     project_id: projectId,
     _project_label: projectLabel,
     _modules_label: "",
+    range_type: row.range_type === "annually" ? "annually" : "monthly",
     plan_type: row.plan_type ?? "",
     amount: row.amount != null ? String(row.amount) : "",
     plan_valid_days:
@@ -61,6 +70,7 @@ export function mapPlanToFormData(
     plan_modules_id: moduleIds,
     discount_amount:
       row.discount_amount != null ? String(row.discount_amount) : "",
+    features: features.length ? features : [""],
   };
 }
 
@@ -81,6 +91,14 @@ export function enrichPlanFormData(
       .filter(Boolean);
     next._modules_label = labels.join(", ");
   }
+  if (!String(next.project_id ?? "").trim() && options.defaultProjectId) {
+    next.project_id = options.defaultProjectId;
+  }
+  if (!String(next._project_label ?? "").trim() && options.projectOptions?.length) {
+    const projectId = String(next.project_id ?? "");
+    next._project_label =
+      options.projectOptions.find((o) => o.value === projectId)?.label ?? "";
+  }
   return next;
 }
 
@@ -97,22 +115,40 @@ export function mapFormToPlanPayload(data: Record<string, unknown>) {
   const discount = discountRaw ? Number(discountRaw) : 0;
 
   const projectId = Number(data.project_id);
+  const features = Array.isArray(data.features)
+    ? (data.features as unknown[])
+        .map((entry) => String(entry ?? "").trim())
+        .filter(Boolean)
+    : [];
 
   return {
     project_id: Number.isFinite(projectId) ? projectId : null,
+    range_type: data.range_type === "annually" ? "annually" : "monthly",
     plan_type: String(data.plan_type ?? "").trim(),
     plan_valid_days: Number.isFinite(validDays) ? validDays : 0,
     plan_modules_id: modules,
     amount: Number.isFinite(amount) ? amount : 0,
     discount_amount: Number.isFinite(discount) ? discount : 0,
+    features,
   };
 }
 
 function planFields(readOnly: boolean) {
   return [
     {
+      name: "range_type",
+      label: "Billing Cycle",
+      type: "select" as const,
+      options: [
+        { label: "Monthly", value: "monthly" },
+        { label: "Annually", value: "annually" },
+      ],
+      readOnly: true,
+      condition: () => readOnly,
+    },
+    {
       name: "project_id",
-      label: "Select Project",
+      label: "Project",
       type: "input-sidebar" as const,
       required: true,
       placeholder: "Click to choose project",
@@ -138,7 +174,7 @@ function planFields(readOnly: boolean) {
     },
     {
       name: "amount",
-      label: "Plan Amount",
+      label: "Plan Amount (price to pay)",
       type: "number" as const,
       required: true,
       placeholder: "0",
@@ -173,8 +209,16 @@ function planFields(readOnly: boolean) {
       readOnly,
     },
     {
+      name: "features",
+      label: "Features",
+      type: "string-list" as const,
+      fullWidth: true,
+      placeholder: "e.g. Unlimited tables, Priority support",
+      readOnly,
+    },
+    {
       name: "discount_amount",
-      label: "Discount Amount",
+      label: "Discount (shown as savings)",
       type: "number" as const,
       placeholder: "Optional",
       readOnly,
@@ -206,6 +250,9 @@ export function buildPlanFormConfig(
     return field;
   });
 
+  const rangeType =
+    initialData.range_type === "annually" ? "annually" : "monthly";
+
   return {
     title:
       mode === "view"
@@ -223,7 +270,12 @@ export function buildPlanFormConfig(
     stickyFooter: true,
     submitLabel: mode === "edit" ? "Update Plan" : "Create Plan",
     cancelLabel: "Back",
-    initialData,
+    tabs: [
+      { id: "monthly", label: "Monthly" },
+      { id: "annually", label: "Annually" },
+    ],
+    tabValueField: "range_type",
+    initialData: { ...initialData, range_type: rangeType },
     sections: [
       {
         title: "Plan Details",

@@ -1,14 +1,18 @@
+export type MenuAvailableStatus = "available" | "not_available";
+
 export interface MenuItemRow {
   id: number;
   name: string;
   amount: number;
   image?: string | null;
+  available_status?: MenuAvailableStatus;
 }
 
 export interface MenuCategoryRow {
   id: number;
   title: string;
   items: MenuItemRow[];
+  available_status?: MenuAvailableStatus;
 }
 
 export interface RestaurantMenuRow {
@@ -30,7 +34,6 @@ export interface RestaurantCustomerRow {
   customer_login_id?: number | null;
   is_not_login?: boolean;
   current_status?: string;
-  is_manual_booking?: boolean;
   address?: string | null;
   created_at?: string;
   restaurant_name?: string | null;
@@ -83,6 +86,24 @@ export interface RestaurantOrderRow {
   table_number?: string | null;
 }
 
+export type RestaurantOrderMasterStatus = "pending" | "on_dine" | "completed";
+
+export interface RestaurantOrderMasterRow {
+  id: number;
+  order_number: number;
+  customer_id?: number | null;
+  floor_id?: number | null;
+  table_id?: number | null;
+  restaurant_id: number;
+  order_items_id?: number[];
+  status: RestaurantOrderMasterStatus | string;
+  created_at?: string;
+  restaurant_name?: string | null;
+  customer_name?: string | null;
+  floor_no?: string | null;
+  table_number?: string | null;
+}
+
 export interface RestaurantPaymentRow {
   id: number;
   order_id: number;
@@ -104,6 +125,7 @@ export interface RestaurantBookingRow {
   booking_time?: string | null;
   booking_date?: string | null;
   booking_status?: string | null;
+  is_manual_booking?: boolean;
   persons_count: number;
   table_id?: number | null;
   created_at?: string;

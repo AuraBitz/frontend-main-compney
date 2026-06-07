@@ -57,10 +57,6 @@ export function PortalRestaurantCustomerView({
         <Field label="Phone" value={row.phone} />
         <Field label="Status" value={row.current_status} />
         <Field
-          label="Manual booking"
-          value={row.is_manual_booking ? "Yes" : "No"}
-        />
-        <Field
           label="Has login"
           value={row.is_not_login ? "No login" : "Login linked"}
         />

@@ -9,6 +9,7 @@ import type {
 } from "@/types/dynamic-form.types";
 import { ApiSelect } from "@/components/form/ApiSelect";
 import { InputSidebar } from "@/components/form/InputSidebar";
+import { StringListField } from "@/components/form/StringListField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -81,6 +82,10 @@ function formatDisplayValue(
     const opt = field.options.find((o) => o.value === String(value));
     return opt?.label ?? String(value);
   }
+  if (field.type === "string-list" && Array.isArray(value)) {
+    const items = value.map(String).map((s) => s.trim()).filter(Boolean);
+    return items.length ? items.map((s) => `• ${s}`).join("\n") : "—";
+  }
   if (field.type === "checkbox") return value ? "Yes" : "No";
   if (field.type === "date" && value) {
     const formatted = formatDateDisplayIST(String(value));
@@ -113,8 +118,15 @@ export function DynamicForm({
   useEffect(() => {
     setFormData(config.initialData);
     setErrors({});
-    setActiveTab(config.tabs?.[0]?.id ?? "");
-  }, [config.initialData, config.tabs]);
+    const defaultTabId = config.tabs?.[0]?.id ?? "";
+    if (config.tabValueField && config.tabs?.length) {
+      const tabValue = String(config.initialData[config.tabValueField] ?? "");
+      const matched = config.tabs.find((t) => t.id === tabValue);
+      setActiveTab(matched?.id ?? defaultTabId);
+      return;
+    }
+    setActiveTab(defaultTabId);
+  }, [config.initialData, config.tabs, config.tabValueField]);
 
   const updateField = useCallback((name: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -382,6 +394,16 @@ export function DynamicForm({
               onChange={mergeFormPatch}
             />
           );
+        case "string-list":
+          return (
+            <StringListField
+              id={id}
+              disabled={disabled}
+              placeholder={field.placeholder}
+              value={value}
+              onChange={(next) => updateField(field.name, next)}
+            />
+          );
         case "multiselect": {
           const selected = Array.isArray(value)
             ? (value as string[])
@@ -480,7 +502,9 @@ export function DynamicForm({
 
   const visibleSections = useMemo(() => {
     if (isView || !hasTabs) return config.sections;
-    return config.sections.filter((s) => sectionTab(s) === activeTab);
+    return config.sections.filter(
+      (s) => !sectionTab(s) || sectionTab(s) === activeTab
+    );
   }, [activeTab, config.sections, hasTabs, isView]);
 
   const footerButtons = useMemo(() => {
@@ -556,7 +580,12 @@ export function DynamicForm({
                   aria-selected={selected}
                   aria-controls={`tabpanel-${tab.id}`}
                   tabIndex={selected ? 0 : -1}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    if (config.tabValueField) {
+                      updateField(config.tabValueField, tab.id);
+                    }
+                  }}
                   onKeyDown={(e) => {
                     const tabs = config.tabs ?? [];
                     const idx = tabs.findIndex((t) => t.id === tab.id);
